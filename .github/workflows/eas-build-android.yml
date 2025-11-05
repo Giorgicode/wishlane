@@ -1,0 +1,39 @@
+name: EAS build - Android
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore google-services.json from secret
+        env:
+          GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -n "$GS_B64" ]; then
+            echo "$GS_B64" | base64 --decode > app/google-services.json
+            echo "Decoded google-services.json"
+          else
+            echo "No secret provided"
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Login to EAS
+        env:
+          EAS_TOKEN: ${{ secrets.EAS_TOKEN }}
+        run: |
+          npx eas-cli whoami || npx eas-cli login --token "$EAS_TOKEN"
+
+      - name: Run EAS build (Android)
+        run: npx eas-cli build --platform android --profile production --non-interactive

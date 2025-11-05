@@ -41,3 +41,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+// Firebase/service files (keep out of repo)
+app/google-services.json
+app/GoogleService-Info.plist
+
+# debug keystore and signing files
+android/app/debug.keystore
+*.keystore
