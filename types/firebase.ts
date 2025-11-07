@@ -1,10 +1,12 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export interface Gift {
   id: string;
   ownerId: string;
   name: string;
   description?: string;
   imageUrl?: string;
-  createdAt?: any; // Firestore Timestamp
+  createdAt?: Timestamp | Date | null; // Firestore Timestamp
   eventId?: string | null;
 }
 
@@ -14,6 +16,6 @@ export interface EventItem {
   name: string;
   description?: string;
   imageUrl?: string;
-  expirationDate?: any; // Firestore Timestamp
-  createdAt?: any;
+  expirationDate?: Timestamp | Date | null; // Firestore Timestamp
+  createdAt?: Timestamp | Date | null;
 }

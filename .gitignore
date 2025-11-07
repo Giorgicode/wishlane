@@ -45,6 +45,7 @@ app-example
 // Firebase/service files (keep out of repo)
 app/google-services.json
 app/GoogleService-Info.plist
+android/app/google-services.json
 
 # debug keystore and signing files
 android/app/debug.keystore
