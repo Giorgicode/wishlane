@@ -17,12 +17,6 @@ jobs:
           printf "%s" "${{ secrets.GOOGLE_SERVICES_JSON_B64 }}" | base64 --decode > app/google-services.json
           echo "Decoded google-services.json"
 
-      - name: Remove google-services.json from runner (cleanup)
-        if: ${{ always() }}
-        run: |
-          # Ensure the file is removed after the job to avoid leaking the file on the runner
-          rm -f app/google-services.json || true
-          echo "Removed google-services.json from runner"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -40,3 +34,10 @@ jobs:
 
       - name: Run EAS build (Android)
         run: npx eas-cli build --platform android --profile production --non-interactive
+
+      - name: Remove google-services.json from runner (cleanup)
+        if: ${{ always() }}
+        run: |
+          # Ensure the file is removed after the job to avoid leaking the file on the runner
+          rm -f app/google-services.json || true
+          echo "Removed google-services.json from runner"
