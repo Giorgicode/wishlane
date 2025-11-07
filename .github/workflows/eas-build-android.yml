@@ -10,16 +10,19 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Restore google-services.json from secret
-        env:
-          GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        # Only run when the secret exists in the repository secrets: avoids accidentally failing or printing
+        if: ${{ secrets.GOOGLE_SERVICES_JSON_B64 != '' }}
         run: |
-          if [ -n "$GS_B64" ]; then
-            echo "$GS_B64" | base64 --decode > app/google-services.json
-            echo "Decoded google-services.json"
-          else
-            echo "No secret provided"
-            exit 1
-          fi
+          # Decode base64 secret safely and write to app/google-services.json
+          printf "%s" "${{ secrets.GOOGLE_SERVICES_JSON_B64 }}" | base64 --decode > app/google-services.json
+          echo "Decoded google-services.json"
+
+      - name: Remove google-services.json from runner (cleanup)
+        if: ${{ always() }}
+        run: |
+          # Ensure the file is removed after the job to avoid leaking the file on the runner
+          rm -f app/google-services.json || true
+          echo "Removed google-services.json from runner"
 
       - name: Setup Node
         uses: actions/setup-node@v4
