@@ -1,16 +1,95 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // User profiles — any authenticated user can read (needed for friend search)
+    // Only the owner can write their profile document
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
 
+      // Gifts — owner has full access
+      //         any authenticated user can READ (needed for shared event gift lists)
+      //         any authenticated user can UPDATE only the reservation fields
       match /gifts/{giftId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == userId;
+        allow update: if request.auth != null &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['reservedBy', 'reservedByName', 'updatedAt']);
       }
 
-      match /events/{eventId} {
+      // Notifications — anyone can create (to notify others)
+      //                  only the owner can read/update/delete
+      match /notifications/{notifId} {
+        allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null;
+      }
+
+      // Friends — owner manages their list
+      //           any authenticated user can create a record here
+      //           (bidirectional friend acceptance: user A writes to user B's friends)
+      match /friends/{friendId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && (
+          request.auth.uid == userId ||
+          request.resource.data.friendId == request.auth.uid
+        );
+        allow update: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // All other subcollections (events, etc.) — owner only
+      match /{subcollection}/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+    }
+
+    // Event shares — owner can write; recipient can read
+    match /eventShares/{shareId} {
+      allow read: if request.auth != null && (
+        resource.data.eventOwnerId == request.auth.uid ||
+        resource.data.sharedWithUserId == request.auth.uid
+      );
+      allow create: if request.auth != null &&
+        request.resource.data.eventOwnerId == request.auth.uid;
+      // Owner can revoke access; recipient can leave
+      allow delete: if request.auth != null && (
+        resource.data.eventOwnerId == request.auth.uid ||
+        resource.data.sharedWithUserId == request.auth.uid
+      );
+    }
+
+    // Share code index — publicly readable (codes are random 8-char strings, essentially unguessable)
+    // Only the event owner can write their own entries
+    match /eventShareCodes/{code} {
+      allow read: if true;
+      allow create, update: if request.auth != null &&
+        request.resource.data.eventOwnerId == request.auth.uid;
+      allow delete: if request.auth != null &&
+        resource.data.eventOwnerId == request.auth.uid;
+    }
+
+    // Event analytics — owner reads; any authenticated user writes (view/reservation tracking)
+    // Stored as top-level docs keyed by "{ownerUid}_{eventId}"
+    match /eventAnalytics/{docId} {
+      allow read: if request.auth != null && resource.data.eventOwnerId == request.auth.uid;
+      allow write: if request.auth != null;
+    }
+
+    // Friend requests — sender or recipient can read/update/delete
+    //                   only the sender can create
+    match /friendRequests/{reqId} {
+      allow read: if request.auth != null && (
+        resource.data.fromUserId == request.auth.uid ||
+        resource.data.toUserId == request.auth.uid
+      );
+      allow create: if request.auth != null &&
+        request.resource.data.fromUserId == request.auth.uid;
+      allow update, delete: if request.auth != null && (
+        resource.data.fromUserId == request.auth.uid ||
+        resource.data.toUserId == request.auth.uid
+      );
     }
   }
 }

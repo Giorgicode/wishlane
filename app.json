@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.datafusion.wishlane",
+      "entitlements": {
+        "aps-environment": "development"
+      }
     },
     "android": {
       "package": "com.datafusion.wishlane",
@@ -30,14 +34,22 @@
     "plugins": [
       "expo-router",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#FF6B81",
+          "defaultChannel": "default"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#07070F",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#07070F"
           }
         }
       ],

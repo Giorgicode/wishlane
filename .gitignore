@@ -50,3 +50,6 @@ android/app/google-services.json
 # debug keystore and signing files
 android/app/debug.keystore
 *.keystore
+
+# Claude Code internal
+.claude/

@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WishLane - Super Modern Calendar Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #fff8f9 0%, #ffeef0 100%);
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #fff8f9 0%, #ffeef0 100%);
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Modern Animations */
+        @keyframes morphIn {
+            0% { transform: scale(0.8) rotateX(20deg); opacity: 0; }
+            50% { transform: scale(1.05) rotateX(-5deg); opacity: 0.7; }
+            100% { transform: scale(1) rotateX(0deg); opacity: 1; }
+        }
+
+        @keyframes slideInUp {
+            0% { transform: translateY(50px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes fadeInScale {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: calc(200px + 100%) 0; }
+        }
+
+        .animate-morph { animation: morphIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .animate-slide-up { animation: slideInUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .animate-fade-scale { animation: fadeInScale 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .animate-pulse { animation: pulse 2s infinite; }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            background-size: 200px 100%;
+            animation: shimmer 2s infinite;
+        }
+
+        /* Header with 3D effects */
+        .header {
+            padding: 20px;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,248,249,0.9) 100%);
+            backdrop-filter: blur(20px);
+            border-radius: 0 0 30px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(255,107,129,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,107,129,0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        .greeting {
+            font-size: 28px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ff6b81, #ff8ba0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 10px rgba(255,107,129,0.3);
+            position: relative;
+            z-index: 2;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #666;
+            opacity: 0.8;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Calendar with glassmorphism */
+        .calendar-container {
+            padding: 20px;
+            margin: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 214, 220, 0.3);
+            box-shadow:
+                0 20px 40px rgba(255,107,129,0.1),
+                0 8px 16px rgba(0,0,0,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.6);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .calendar-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,107,129,0.05) 0%, transparent 70%);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .month-year {
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ff6b81, #ff8ba0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 2px 10px rgba(255,107,129,0.3);
+        }
+
+        .nav-button {
+            background: linear-gradient(135deg, #ff6b81, #ff8ba0);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow:
+                0 8px 16px rgba(255,107,129,0.3),
+                0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .nav-button:hover::before {
+            width: 100px;
+            height: 100px;
+        }
+
+        .nav-button:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow:
+                0 12px 24px rgba(255,107,129,0.4),
+                0 6px 12px rgba(0,0,0,0.3);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .day-name {
+            text-align: center;
+            font-weight: bold;
+            color: #666;
+            padding: 12px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .day-cell {
+            aspect-ratio: 1;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            background: rgba(255,255,255,0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,214,220,0.2);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .day-cell:hover {
+            transform: scale(1.1) translateY(-5px);
+            box-shadow:
+                0 12px 24px rgba(255,107,129,0.2),
+                0 6px 12px rgba(0,0,0,0.15);
+            background: rgba(255,255,255,0.9);
+        }
+
+        .day-cell.today {
+            background: linear-gradient(135deg, #ff6b81, #ff8ba0);
+            color: white;
+            box-shadow:
+                0 8px 16px rgba(255,107,129,0.4),
+                0 4px 8px rgba(0,0,0,0.2);
+            animation: pulse 2s infinite;
+        }
+
+        .day-cell.has-events {
+            background: linear-gradient(135deg, rgba(255,107,129,0.1), rgba(255,139,160,0.1));
+            border: 2px solid #ff6b81;
+            box-shadow: 0 6px 12px rgba(255,107,129,0.2);
+        }
+
+        .day-number {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            z-index: 2;
+        }
+
+        .event-indicators {
+            position: absolute;
+            bottom: 6px;
+            display: flex;
+            gap: 2px;
+        }
+
+        .event-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b81, #ff8ba0);
+            box-shadow: 0 2px 4px rgba(255,107,129,0.4);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .event-dot:nth-child(2) { animation-delay: 0.5s; }
+        .event-dot:nth-child(3) { animation-delay: 1s; }
+
+        .upcoming-events {
+            background: rgba(255, 248, 249, 0.8);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid rgba(255, 214, 220, 0.3);
+            box-shadow:
+                0 12px 24px rgba(255,107,129,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.4);
+            position: relative;
+            z-index: 2;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ff6b81, #ff8ba0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .event-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,214,220,0.3);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .event-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,107,129,0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .event-item:hover::before {
+            left: 100%;
+        }
+
+        .event-item:hover {
+            transform: translateX(8px) scale(1.02);
+            box-shadow:
+                0 8px 16px rgba(255,107,129,0.2),
+                0 4px 8px rgba(0,0,0,0.15);
+            background: rgba(255,255,255,0.9);
+        }
+
+        .event-info {
+            flex: 1;
+        }
+
+        .event-name {
+            font-weight: bold;
+            background: linear-gradient(135deg, #ff5d73, #ff6b81);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 4px;
+            font-size: 16px;
+        }
+
+        .event-countdown {
+            font-size: 12px;
+            background: linear-gradient(135deg, #ff6b81, #ff8ba0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: bold;
+        }
+
+        .event-arrow {
+            font-size: 20px;
+            background: linear-gradient(135deg, #ff6b81, #ff8ba0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+
+        .event-item:hover .event-arrow {
+            transform: translateX(5px);
+        }
+
+        /* Modern Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: flex-end;
+            z-index: 1000;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #fff8f9 0%, #ffeef0 100%);
+            border-radius: 30px 30px 0 0;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow:
+                0 -20px 40px rgba(0,0,0,0.3),
+                0 0 0 1px rgba(255,255,255,0.1);
+            position: relative;
+        }
+
+        .modal-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: linear-gradient(135deg, rgba(255,107,129,0.1) 0%, transparent 100%);
+            border-radius: 30px 30px 0 0;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,214,220,0.3);
+            position: relative;
+            z-index: 2;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ff6b81, #ff8ba0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .close-button {
+            background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .close-button:hover {
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+
+        .event-details {
+            padding: 24px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .event-description {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 20px;
+            line-height: 1.6;
+            background: rgba(255,255,255,0.6);
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,214,220,0.2);
+        }
+
+        .date-info, .countdown-info {
+            display: flex;
+            margin-bottom: 12px;
+            background: rgba(255,255,255,0.7);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,214,220,0.2);
+        }
+
+        .date-label, .countdown-label {
+            font-weight: bold;
+            color: #666;
+            margin-right: 12px;
+            font-size: 14px;
+        }
+
+        .date-value {
+            color: #333;
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .countdown-value {
+            background: linear-gradient(135deg, #ff6b81, #ff8ba0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: bold;
+            flex: 1;
+        }
+
+        .gifts-section {
+            margin-top: 24px;
+        }
+
+        .gift-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,214,220,0.3);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+        }
+
+        .gift-item:hover {
+            transform: translateX(5px) scale(1.02);
+            box-shadow: 0 8px 16px rgba(255,107,129,0.2);
+            background: rgba(255,255,255,0.9);
+        }
+
+        .gift-name {
+            font-weight: bold;
+            background: linear-gradient(135deg, #ff5d73, #ff6b81);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 4px;
+        }
+
+        .gift-desc {
+            color: #555;
+            font-size: 14px;
+        }
+
+        .sharing-section {
+            margin-top: 24px;
+            padding: 16px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 16px;
+            border: 1px solid rgba(255,214,220,0.2);
+        }
+
+        .sharing-info {
+            display: flex;
+            align-items: center;
+            background: rgba(255,248,249,0.8);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,214,220,0.3);
+        }
+
+        .sharing-emoji {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+
+        .sharing-text {
+            color: #555;
+            flex: 1;
+        }
+
+        .demo-notice {
+            background: linear-gradient(135deg, rgba(232,244,253,0.9), rgba(179,217,255,0.9));
+            border: 1px solid rgba(179,217,255,0.5);
+            border-radius: 16px;
+            padding: 20px;
+            margin: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+
+        .demo-notice h3 {
+            background: linear-gradient(135deg, #0066cc, #0099ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .demo-notice p {
+            color: #333;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* Loading animation */
+        .loading {
+            opacity: 0;
+            animation: fadeInScale 0.8s 0.5s forwards;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header animate-morph">
+            <div class="greeting">Good morning, Alex! 🎁</div>
+            <div class="subtitle">Plan your gifts with WishLane</div>
+        </div>
+
+        <!-- Calendar -->
+        <div class="calendar-container animate-slide-up">
+            <div class="calendar-header">
+                <button class="nav-button">‹</button>
+                <div class="month-year">December 2024</div>
+                <button class="nav-button">›</button>
+            </div>
+
+            <div class="calendar-grid">
+                <div class="day-name">Sun</div>
+                <div class="day-name">Mon</div>
+                <div class="day-name">Tue</div>
+                <div class="day-name">Wed</div>
+                <div class="day-name">Thu</div>
+                <div class="day-name">Fri</div>
+                <div class="day-name">Sat</div>
+
+                <!-- Calendar days with modern animations -->
+                <div class="day-cell" style="animation-delay: 0.1s">
+                    <div class="day-number">1</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.15s">
+                    <div class="day-number">2</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.2s">
+                    <div class="day-number">3</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.25s">
+                    <div class="day-number">4</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.3s">
+                    <div class="day-number">5</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.35s">
+                    <div class="day-number">6</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.4s">
+                    <div class="day-number">7</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.45s">
+                    <div class="day-number">8</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.5s">
+                    <div class="day-number">9</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.55s">
+                    <div class="day-number">10</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.6s">
+                    <div class="day-number">11</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.65s">
+                    <div class="day-number">12</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.7s">
+                    <div class="day-number">13</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.75s">
+                    <div class="day-number">14</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.8s">
+                    <div class="day-number">15</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.85s">
+                    <div class="day-number">16</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.9s">
+                    <div class="day-number">17</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 0.95s">
+                    <div class="day-number">18</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 1s">
+                    <div class="day-number">19</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 1.05s">
+                    <div class="day-number">20</div>
+                </div>
+                <div class="day-cell has-events" style="animation-delay: 1.1s">
+                    <div class="day-number">21</div>
+                    <div class="event-indicators">
+                        <div class="event-dot"></div>
+                    </div>
+                </div>
+                <div class="day-cell" style="animation-delay: 1.15s">
+                    <div class="day-number">22</div>
+                </div>
+                <div class="day-cell has-events" style="animation-delay: 1.2s">
+                    <div class="day-number">23</div>
+                    <div class="event-indicators">
+                        <div class="event-dot"></div>
+                        <div class="event-dot"></div>
+                    </div>
+                </div>
+                <div class="day-cell" style="animation-delay: 1.25s">
+                    <div class="day-number">24</div>
+                </div>
+                <div class="day-cell today" style="animation-delay: 1.3s">
+                    <div class="day-number">25</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 1.35s">
+                    <div class="day-number">26</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 1.4s">
+                    <div class="day-number">27</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 1.45s">
+                    <div class="day-number">28</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 1.5s">
+                    <div class="day-number">29</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 1.55s">
+                    <div class="day-number">30</div>
+                </div>
+                <div class="day-cell" style="animation-delay: 1.6s">
+                    <div class="day-number">31</div>
+                </div>
+            </div>
+
+            <!-- Upcoming Events -->
+            <div class="upcoming-events animate-fade-scale">
+                <div class="section-title">🎯 Upcoming Events (3)</div>
+
+                <div class="event-item" style="animation-delay: 1.8s">
+                    <div class="event-info">
+                        <div class="event-name">Mom's Birthday</div>
+                        <div class="event-countdown">3 days left</div>
+                    </div>
+                    <div class="event-arrow">→</div>
+                </div>
+
+                <div class="event-item" style="animation-delay: 2s">
+                    <div class="event-info">
+                        <div class="event-name">Christmas Party</div>
+                        <div class="event-countdown">8 days left</div>
+                    </div>
+                    <div class="event-arrow">→</div>
+                </div>
+
+                <div class="event-item" style="animation-delay: 2.2s">
+                    <div class="event-info">
+                        <div class="event-name">New Year's Eve</div>
+                        <div class="event-countdown">11 days left</div>
+                    </div>
+                    <div class="event-arrow">→</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demo Notice -->
+        <div class="demo-notice animate-slide-up">
+            <h3>🚀 Super Modern Design!</h3>
+            <p><strong>✨ Morphing Animations:</strong> Elements transform and flow into each other with fluid motion<br>
+            <strong>🌟 3D Effects:</strong> Depth, shadows, and perspective transforms<br>
+            <strong💫 Glassmorphism:</strong> Modern frosted glass effects with backdrop blur<br>
+            <strong🎨 Gradients:</strong> Beautiful color transitions and text gradients<br>
+            <strong⚡ Micro-interactions:</strong> Hover effects, pulses, and floating animations</p>
+        </div>
+    </div>
+
+    <!-- Event Details Modal (Hidden by default) -->
+    <div class="modal-overlay" id="eventModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Mom's Birthday</div>
+                <button class="close-button" onclick="closeModal()">✕</button>
+            </div>
+
+            <div class="event-details">
+                <div class="event-description">
+                    Celebrating Mom's special day! Let's make it memorable with thoughtful gifts.
+                </div>
+
+                <div class="date-info">
+                    <span class="date-label">📅 Date:</span>
+                    <span class="date-value">Friday, December 27, 2024</span>
+                </div>
+
+                <div class="countdown-info">
+                    <span class="countdown-label">⏰ Time until:</span>
+                    <span class="countdown-value">3 days left</span>
+                </div>
+
+                <div class="gifts-section">
+                    <div class="section-title">🎁 Gifts for this Event (2)</div>
+
+                    <div class="gift-item">
+                        <div>
+                            <div class="gift-name">Scented Candles Set</div>
+                            <div class="gift-desc">Lavender and vanilla scented candles</div>
+                        </div>
+                        <div class="event-arrow">→</div>
+                    </div>
+
+                    <div class="gift-item">
+                        <div>
+                            <div class="gift-name">Personalized Photo Frame</div>
+                            <div class="gift-desc">Custom engraved frame with family photos</div>
+                        </div>
+                        <div class="event-arrow">→</div>
+                    </div>
+                </div>
+
+                <div class="sharing-section">
+                    <div class="section-title">🤝 Shared With</div>
+                    <div class="sharing-info">
+                        <div class="sharing-emoji">🔒</div>
+                        <div class="sharing-text">
+                            This event is private. Only you can see it.
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; color: #999; margin-top: 10px;">
+                        Sharing functionality coming soon! You'll be able to share events with friends and family.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add stagger animations to calendar cells
+        document.querySelectorAll('.day-cell').forEach((cell, index) => {
+            cell.style.animation = `fadeInScale 0.4s ${0.1 + index * 0.05}s both cubic-bezier(0.34, 1.56, 0.64, 1)`;
+        });
+
+        // Add stagger animations to event items
+        document.querySelectorAll('.event-item').forEach((item, index) => {
+            item.style.animation = `slideInUp 0.5s ${1.8 + index * 0.2}s both cubic-bezier(0.34, 1.56, 0.64, 1)`;
+        });
+
+        function closeModal() {
+            document.getElementById('eventModal').classList.remove('active');
+        }
+
+        // Add click handlers to event items
+        document.querySelectorAll('.event-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.getElementById('eventModal').classList.add('active');
+            });
+        });
+
+        // Add click handlers to dates with events
+        document.querySelectorAll('.day-cell.has-events').forEach(cell => {
+            cell.addEventListener('click', () => {
+                document.getElementById('eventModal').classList.add('active');
+            });
+        });
+
+        // Add loading animation
+        setTimeout(() => {
+            document.querySelector('.demo-notice').classList.add('loading');
+        }, 500);
+    </script>
+</body>
+</html>
