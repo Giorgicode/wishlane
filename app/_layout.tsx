@@ -15,6 +15,7 @@ import OfflineBanner from '@/components/offline-banner';
 import { useNotifications } from '@/hooks/useNotifications';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { subscribeToUserProfile } from '@/lib/firestore';
+import { isPreset, presetColor } from '@/lib/avatarPresets';
 
 enableScreens();
 
@@ -78,15 +79,22 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style="light" />
 
-        {/* Avatar — only shown when signed in */}
-        {!!uid && (
+        {/* Avatar — only shown when signed in and not already on profile */}
+        {!!uid && !(segments as string[]).includes('profile') && (
           <View pointerEvents="box-none" style={styles.avatarContainer}>
             <Pressable onPress={() => router.push('/profile')} style={styles.avatarButton}>
-              {avatarUrl ? (
+              {avatarUrl && !isPreset(avatarUrl) ? (
                 <Image source={{ uri: avatarUrl }} style={styles.avatar} />
               ) : (
-                <View style={styles.avatarPlaceholder}>
-                  {!!avatarInitial && <Text style={styles.avatarInitialText}>{avatarInitial}</Text>}
+                <View style={[
+                  styles.avatarPlaceholder,
+                  isPreset(avatarUrl) && { backgroundColor: presetColor(avatarUrl) + '30' },
+                ]}>
+                  {!!avatarInitial && (
+                    <Text style={[styles.avatarInitialText, isPreset(avatarUrl) && { color: presetColor(avatarUrl) }]}>
+                      {avatarInitial}
+                    </Text>
+                  )}
                 </View>
               )}
             </Pressable>

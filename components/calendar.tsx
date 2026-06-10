@@ -19,12 +19,13 @@ interface CalendarProps {
   gifts: Gift[];
   onEventPress: (event: EventItem) => void;
   onDatePress: (date: Date) => void;
+  onAddEvent?: (date: Date) => void;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const CELL_H = 38;
 
-export default function Calendar({ events, gifts, onEventPress, onDatePress }: CalendarProps) {
+export default function Calendar({ events, gifts, onEventPress, onDatePress, onAddEvent }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -224,15 +225,28 @@ export default function Calendar({ events, gifts, onEventPress, onDatePress }: C
         ))}
       </Animated.View>
 
-      {/* Selected date detail panel */}
+      {/* Selected date detail panel — always shown when a date is selected */}
       {selectedDate && (() => {
         const selHolidays = getHolidaysForDate(selectedDate);
-        const selEvents = getEventsForDate(selectedDate);
-        if (selHolidays.length === 0 && selEvents.length === 0) return null;
-        const dateLabel = selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const selEvents   = getEventsForDate(selectedDate);
+        const dateLabel   = selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
         return (
           <Animated.View entering={FadeInDown.duration(220)} exiting={FadeOut.duration(150)} style={styles.dayPanel}>
-            <Text style={styles.dayPanelTitle}>{dateLabel}</Text>
+            {/* Panel header: date label + add button */}
+            <View style={styles.dayPanelHeader}>
+              <Text style={styles.dayPanelTitle}>{dateLabel}</Text>
+              {onAddEvent && (
+                <TouchableOpacity
+                  style={styles.dayPanelAddBtn}
+                  onPress={() => onAddEvent(selectedDate)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.dayPanelAddText}>+</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Holidays */}
             {selHolidays.map((h, i) => (
               <View key={`h-${i}`} style={[styles.dayPanelRow, { backgroundColor: h.color + '18' }]}>
                 <View style={[styles.dayPanelIcon, { backgroundColor: h.color + '30' }]}>
@@ -244,6 +258,8 @@ export default function Calendar({ events, gifts, onEventPress, onDatePress }: C
                 </View>
               </View>
             ))}
+
+            {/* Events */}
             {selEvents.map((ev) => (
               <TouchableOpacity key={ev.id} style={styles.dayPanelRow} onPress={() => onEventPress(ev)} activeOpacity={0.75}>
                 <View style={[styles.dayPanelIcon, { backgroundColor: C.roseDim }]}>
@@ -256,6 +272,11 @@ export default function Calendar({ events, gifts, onEventPress, onDatePress }: C
                 <Text style={styles.eventRowArrow}>›</Text>
               </TouchableOpacity>
             ))}
+
+            {/* Empty state */}
+            {selHolidays.length === 0 && selEvents.length === 0 && (
+              <Text style={styles.dayPanelEmpty}>No events on this day</Text>
+            )}
           </Animated.View>
         );
       })()}
@@ -306,9 +327,9 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: R.xl,
     padding: S.sm,
-    marginHorizontal: 0,
-    maxWidth: 480,
-    alignSelf: 'stretch',
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
     ...glass,
     ...shadow.md,
   },
@@ -400,7 +421,14 @@ const styles = StyleSheet.create({
     padding: S.sm,
     ...glassStrong,
   },
-  dayPanelTitle: { fontSize: 11, color: C.t3, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  dayPanelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: S.sm },
+  dayPanelTitle: { fontSize: 13, color: C.t1, fontWeight: '600' as const },
+  dayPanelAddBtn: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: C.rose, alignItems: 'center', justifyContent: 'center',
+  },
+  dayPanelAddText: { color: '#fff', fontSize: 20, lineHeight: 22, fontWeight: '400' as const },
+  dayPanelEmpty: { ...T.small, color: C.t3, textAlign: 'center', paddingVertical: S.sm } as any,
   dayPanelRow: {
     flexDirection: 'row', alignItems: 'center', gap: S.xs,
     borderRadius: R.md, padding: 8, marginBottom: 4,

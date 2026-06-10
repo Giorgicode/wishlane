@@ -122,19 +122,34 @@ export async function updateEvent(uid: string, eventId: string, patch: { name?: 
   const ref = doc(db, 'users', uid, 'events', eventId);
   await updateDoc(ref as any, patch as any);
 
-  // Keep the share code index in sync with the latest event fields
+  // Build the denormalized update for share code index + eventShares docs
+  const denormUpdate: Record<string, any> = {};
+  if (patch.name !== undefined)           denormUpdate.eventName           = patch.name;
+  if (patch.description !== undefined)    denormUpdate.eventDescription    = patch.description;
+  if (patch.expirationDate !== undefined) denormUpdate.eventExpirationDate = patch.expirationDate;
+
+  if (Object.keys(denormUpdate).length === 0) return;
+
   const snap = await getDoc(ref);
-  if (snap.exists()) {
-    const event = snap.data() as EventItem;
-    if (event.shareCode) {
-      const codeRef = doc(db, 'eventShareCodes', event.shareCode);
-      const update: Record<string, any> = {};
-      if (patch.name !== undefined)             update.eventName          = patch.name;
-      if (patch.description !== undefined)      update.eventDescription   = patch.description;
-      if (patch.expirationDate !== undefined)   update.eventExpirationDate = patch.expirationDate;
-      if (Object.keys(update).length > 0) await updateDoc(codeRef, update);
-    }
+  if (!snap.exists()) return;
+  const event = snap.data() as EventItem;
+
+  const batch = writeBatch(db);
+
+  // Sync share code index
+  if (event.shareCode) {
+    batch.update(doc(db, 'eventShareCodes', event.shareCode), denormUpdate);
   }
+
+  // Sync all eventShares so recipients see fresh name/description/date
+  const sharesSnap = await getDocs(query(
+    collection(db, 'eventShares'),
+    where('eventId', '==', eventId),
+    where('eventOwnerId', '==', uid),
+  ));
+  sharesSnap.forEach((d) => batch.update(d.ref, denormUpdate));
+
+  await batch.commit();
 }
 
 // --- User profile helpers ---
@@ -665,6 +680,7 @@ export function subscribeToPendingRequests(userId: string, onUpdate: (requests: 
  */
 export async function trackEventView(eventOwnerId: string, eventId: string, viewedByUserId: string) {
   const analyticRef = doc(db, 'eventAnalytics', `${eventOwnerId}_${eventId}`);
+  const snap = await getDoc(analyticRef);
   await setDoc(analyticRef, {
     id: `${eventOwnerId}_${eventId}`,
     eventOwnerId,
@@ -673,6 +689,7 @@ export async function trackEventView(eventOwnerId: string, eventId: string, view
     viewCount: increment(1),
     lastViewedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    ...(!snap.exists() ? { createdAt: serverTimestamp() } : {}),
   }, { merge: true });
 }
 

@@ -2,7 +2,8 @@ import AmbientBg from '@/components/ambient-bg';
 import SkeletonBlock from '@/components/skeleton-block';
 import { C, glass, glassStrong, R, S, SCREEN, shadow, spring, T, TAB_BAR_HEIGHT } from '@/constants/design';
 import { useAuth } from '@/hooks/useAuth';
-import { assignGiftToEvent, createGift, deleteGift, subscribeToEvents, subscribeToGifts, updateGift } from '@/lib/firestore';
+import { assignGiftToEvent, createGift, deleteGift, updateGift } from '@/lib/firestore';
+import { useAppData } from '@/contexts/AppDataContext';
 import { toast } from '@/lib/toast';
 import type { EventItem, Gift } from '@/types/firebase';
 import { useEffect, useMemo, useState } from 'react';
@@ -215,9 +216,7 @@ const TYPE_COLOR: Record<GiftType, string> = {
 };
 
 export default function GiftsScreen() {
-  const [gifts, setGifts] = useState<Gift[]>([]);
-  const [giftsReady, setGiftsReady] = useState(false);
-  const [events, setEvents] = useState<EventItem[]>([]);
+  const { gifts, giftsReady, events } = useAppData();
   const [editingGift, setEditingGift] = useState<Gift | null>(null);
   const [editForm, setEditForm] = useState({ name: '', description: '', price: '', type: 'online' as GiftType, link: '', brand: '', country: '', city: '', place: '', category: 'beauty' });
   const [formVisible, setFormVisible] = useState(false);
@@ -253,16 +252,6 @@ export default function GiftsScreen() {
     return result;
   }, [gifts, searchQuery, filterCategory]);
   const isOpen = useSharedValue(0);
-
-  useEffect(() => {
-    if (!uid) return;
-    return subscribeToGifts(uid, (g) => { setGifts(g); setGiftsReady(true); });
-  }, [uid]);
-
-  useEffect(() => {
-    if (!uid) return;
-    return subscribeToEvents(uid, setEvents);
-  }, [uid]);
 
   const getEventName = (eventId?: string | null): string | undefined =>
     eventId ? (events.find((e) => e.id === eventId)?.name ?? undefined) : undefined;

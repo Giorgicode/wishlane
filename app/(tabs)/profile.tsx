@@ -4,6 +4,7 @@ import { C, glass, R, S, shadow, T, TAB_BAR_HEIGHT } from '@/constants/design';
 import { auth } from '@/config/firebaseConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { setUserProfile, subscribeToUserProfile, UserProfile } from '@/lib/firestore';
+import { AVATAR_PRESETS, isPreset, presetColor } from '@/lib/avatarPresets';
 import { uploadImageAsync } from '@/lib/storage';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'expo-router';
@@ -18,6 +19,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -150,7 +152,6 @@ export default function ProfileScreen() {
   const [favSports, setFavSports]         = useState<string[]>([]);
   const [dislikes, setDislikes]           = useState<string[]>([]);
   const [whatMakesYouHappy, setHappy]     = useState('');
-  const [priceRange, setPriceRange]       = useState('');
   const [allergiesInput, setAllergies]    = useState('');
   const [brandsInput, setBrands]          = useState('');
   const [preferredGiftTypes, setGiftTypes]= useState<string[]>([]);
@@ -185,7 +186,6 @@ export default function ProfileScreen() {
     setFavSports(p.interests?.filter((i) => SPORT_OPTIONS.includes(i)) ?? []);
     setDislikes(p.dislikes ?? []);
     setHappy(p.whatMakesYouHappy ?? '');
-    setPriceRange(p.priceRange ?? '');
     setAllergies((p.allergies ?? []).join(', '));
     setBrands((p.favoriteBrands ?? []).join(', '));
     setGiftTypes(p.preferredGiftTypes ?? []);
@@ -196,6 +196,7 @@ export default function ProfileScreen() {
   const toggle = (arr: string[], set: (v: string[]) => void, item: string) =>
     arr.includes(item) ? set(arr.filter((x) => x !== item)) : set([...arr, item]);
 
+  const [showFullBio, setShowFullBio] = useState(false);
   const openEdit = () => { if (profile) populateForm(profile); setShowEdit(true); };
 
   const handleSignOut = () => {
@@ -203,6 +204,51 @@ export default function ProfileScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: () => signOut(auth) },
     ]);
+  };
+
+  const handleShare = async () => {
+    if (!profile) return;
+    const lines: string[] = [];
+    const name = profile.displayName || 'My';
+    lines.push(`🎁 ${name}'s Wishlist Profile`);
+    if (profile.username) lines.push(`@${profile.username}`);
+    if (profile.description) lines.push(`\n${profile.description}`);
+    lines.push('');
+    if (profile.favoriteColors?.length)     lines.push(`🎨 Colours: ${profile.favoriteColors.join(', ')}`);
+    if (profile.favoriteFood?.length)       lines.push(`🍜 Food: ${profile.favoriteFood.join(', ')}`);
+    if (profile.favoriteDessert?.length)    lines.push(`🍰 Dessert: ${profile.favoriteDessert.join(', ')}`);
+    if (profile.favoriteActivities?.length) lines.push(`✨ Activities: ${profile.favoriteActivities.join(', ')}`);
+    if (profile.interests?.length)          lines.push(`⚽ Sports: ${profile.interests.join(', ')}`);
+    if (profile.dislikes?.length)           lines.push(`🚫 Not a fan of: ${profile.dislikes.join(', ')}`);
+    if (profile.whatMakesYouHappy)          lines.push(`💛 What makes me happy: ${profile.whatMakesYouHappy}`);
+    const hasGuide = profile.preferredGiftTypes?.length || profile.favoriteBrands?.length ||
+      profile.allergies?.length || profile.clothingSize || profile.shoeSize;
+    if (hasGuide) {
+      lines.push('\n🎀 Gift Guide');
+      if (profile.preferredGiftTypes?.length)  lines.push(`   Types: ${profile.preferredGiftTypes.join(', ')}`);
+      if (profile.favoriteBrands?.length)       lines.push(`   Brands: ${profile.favoriteBrands.join(', ')}`);
+      if (profile.allergies?.length)            lines.push(`   Allergies: ${profile.allergies.join(', ')}`);
+      if (profile.clothingSize)                 lines.push(`   Clothing size: ${profile.clothingSize}`);
+      if (profile.shoeSize)                     lines.push(`   Shoe size: ${profile.shoeSize}`);
+    }
+    const text = lines.join('\n');
+
+    if (Platform.OS === 'web') {
+      if (typeof navigator !== 'undefined' && (navigator as any).share) {
+        try { await (navigator as any).share({ title: `${name}'s Wishlist Profile`, text }); return; }
+        catch { /* fallthrough to clipboard */ }
+      }
+      // Fallback: copy to clipboard
+      try {
+        await (navigator as any).clipboard.writeText(text);
+        toast.success('Copied to clipboard');
+      } catch { toast.error('Could not share profile'); }
+      return;
+    }
+
+    try {
+      await Share.share({ message: text, title: `${name}'s Wishlist Profile` });
+    } catch { toast.error('Could not share profile'); }
   };
 
   const save = async () => {
@@ -225,7 +271,6 @@ export default function ProfileScreen() {
         interests: favSports,
         dislikes,
         whatMakesYouHappy,
-        priceRange,
         allergies: allergiesInput ? allergiesInput.split(',').map((s) => s.trim()).filter(Boolean) : [],
         favoriteBrands: brandsInput ? brandsInput.split(',').map((s) => s.trim()).filter(Boolean) : [],
         preferredGiftTypes,
@@ -237,8 +282,9 @@ export default function ProfileScreen() {
       toast.success(isFirstSave ? 'Welcome to Wishlane!' : 'Profile saved', isFirstSave ? '🎉' : 'Updated');
       setShowEdit(false);
       if (isFirstSave) router.replace('/(tabs)');
-    } catch {
-      toast.error('Failed to save profile');
+    } catch (e: any) {
+      console.error('Profile save error:', e);
+      toast.error(e?.message ?? 'Failed to save profile');
     } finally {
       setSaving(false);
     }
@@ -285,6 +331,9 @@ export default function ProfileScreen() {
           <Pressable onPress={handleSignOut} style={styles.signOutBtn}>
             <Text style={styles.signOutBtnText}>Sign Out</Text>
           </Pressable>
+          <Pressable onPress={handleShare} style={styles.shareBtn}>
+            <Text style={styles.shareBtnText}>↑ Share</Text>
+          </Pressable>
           <Pressable onPress={openEdit} style={styles.editBtn}>
             <Text style={styles.editBtnText}>Edit</Text>
           </Pressable>
@@ -297,29 +346,55 @@ export default function ProfileScreen() {
       >
         {/* ── hero ── */}
         <Animated.View entering={FadeInDown.duration(500)} style={styles.hero}>
-          {profile?.photoURL ? (
+          {profile?.photoURL && !isPreset(profile.photoURL) ? (
             <Image source={{ uri: profile.photoURL }} style={styles.heroAvatar} />
           ) : (
-            <View style={styles.heroAvatarPlaceholder}>
-              <Text style={styles.heroInitial}>
+            <View style={[
+              styles.heroAvatarPlaceholder,
+              isPreset(profile?.photoURL) && {
+                backgroundColor: presetColor(profile?.photoURL) + '28',
+                borderColor: presetColor(profile?.photoURL) + '80',
+              },
+            ]}>
+              <Text style={[styles.heroInitial, isPreset(profile?.photoURL) && { color: presetColor(profile?.photoURL) }]}>
                 {(profile?.displayName || profile?.email || '?')[0].toUpperCase()}
               </Text>
             </View>
           )}
-          <Text style={styles.heroName}>{profile?.displayName || profile?.email || 'Your Name'}</Text>
-          {!!profile?.username && <Text style={styles.heroUsername}>@{profile.username}</Text>}
-          {!!profile?.description && <Text style={styles.heroDesc}>{profile.description}</Text>}
+          <Text style={styles.heroName}>{profile?.displayName || 'Your Name'}</Text>
+          {!!profile?.email && <Text style={styles.heroEmail}>{profile.email}</Text>}
           <View style={styles.heroPills}>
-            {!!profile?.gender && (
-              <View style={styles.heroPill}><Text style={styles.heroPillText}>{profile.gender}</Text></View>
+            {!!profile?.username && (
+              <View style={[styles.heroPill, { borderColor: C.teal + '50', backgroundColor: C.teal + '12' }]}>
+                <Text style={[styles.heroPillText, { color: C.teal }]}>@{profile.username}</Text>
+              </View>
             )}
-            {!!profile?.priceRange && (
-              <View style={[styles.heroPill, { borderColor: C.goldLux + '60' }]}>
-                <Text style={[styles.heroPillText, { color: C.goldLux }]}>{profile.priceRange}</Text>
+            {!!profile?.gender && (
+              <View style={styles.heroPill}>
+                <Text style={styles.heroPillText}>{profile.gender}</Text>
               </View>
             )}
           </View>
         </Animated.View>
+
+        {/* ── about me ── */}
+        {!!profile?.description && (() => {
+          const LIMIT = 160;
+          const isLong = profile.description.length > LIMIT;
+          const shown = isLong && !showFullBio
+            ? profile.description.slice(0, LIMIT) + '…'
+            : profile.description;
+          return (
+            <SectionCard title="ABOUT ME">
+              <Text style={styles.sectionBody}>{shown}</Text>
+              {isLong && (
+                <Pressable onPress={() => setShowFullBio((v) => !v)} style={{ marginTop: S.xs }}>
+                  <Text style={{ ...T.small, color: C.rose }}>{showFullBio ? 'Show less' : 'Read more'}</Text>
+                </Pressable>
+              )}
+            </SectionCard>
+          );
+        })()}
 
         {/* ── preference sections ── */}
         {(profile?.favoriteColors ?? []).length > 0 && (
@@ -439,12 +514,20 @@ export default function ProfileScreen() {
           </SectionCard>
         ) : null}
 
-        {/* empty state nudge */}
-        {!profile?.displayName && (
+        {/* empty state nudge — shown when no preference sections are filled */}
+        {!(profile?.favoriteColors?.length) &&
+         !(profile?.favoriteFood?.length) &&
+         !(profile?.favoriteDessert?.length) &&
+         !(profile?.favoriteActivities?.length) &&
+         !(profile?.interests?.length) &&
+         !(profile?.dislikes?.length) &&
+         !profile?.whatMakesYouHappy &&
+         !(profile?.preferredGiftTypes?.length) && (
           <Animated.View entering={FadeIn.duration(600)} style={styles.nudge}>
-            <Text style={styles.nudgeText}>Fill in your profile so friends know what to gift you</Text>
+            <Text style={styles.nudgeTitle}>Your profile is almost done</Text>
+            <Text style={styles.nudgeText}>Add your preferences so friends know exactly what to gift you</Text>
             <Pressable style={styles.nudgeBtn} onPress={openEdit}>
-              <Text style={styles.nudgeBtnText}>Set up profile</Text>
+              <Text style={styles.nudgeBtnText}>Add preferences</Text>
             </Pressable>
           </Animated.View>
         )}
@@ -480,12 +563,21 @@ export default function ProfileScreen() {
               <FormSection label="IDENTITY" />
               <View style={styles.formCard}>
                 <Text style={styles.fieldLabel}>Profile picture</Text>
+                {/* Avatar preview */}
                 <View style={styles.avatarRow}>
-                  {photoURL ? (
+                  {photoURL && !isPreset(photoURL) ? (
                     <Image source={{ uri: photoURL }} style={styles.editAvatar} />
                   ) : (
-                    <View style={styles.editAvatarPlaceholder}>
-                      <Text style={{ color: C.t3, fontSize: 22 }}>+</Text>
+                    <View style={[
+                      styles.editAvatarPlaceholder,
+                      isPreset(photoURL) && {
+                        backgroundColor: presetColor(photoURL) + '28',
+                        borderColor: presetColor(photoURL) + '70',
+                      },
+                    ]}>
+                      <Text style={{ color: isPreset(photoURL) ? presetColor(photoURL) : C.t3, fontSize: isPreset(photoURL) ? 22 : 28, fontWeight: '700' }}>
+                        {isPreset(photoURL) ? (displayName?.[0]?.toUpperCase() ?? '?') : '+'}
+                      </Text>
                     </View>
                   )}
                   <View style={{ flex: 1, gap: S.xs }}>
@@ -499,28 +591,58 @@ export default function ProfileScreen() {
                         const uri = (res as any).uri ?? (res as any).assets?.[0]?.uri;
                         const url = await uploadImageAsync(uri, `users/${uid}/profile-${Date.now()}.jpg`);
                         setPhotoURL(url);
-                      } catch { toast.error('Failed to upload image'); }
+                      } catch (e: any) { toast.error(e?.message ?? 'Failed to upload image'); }
                     }}>
-                      <Text style={styles.pickPhotoBtnText}>Pick from library</Text>
+                      <Text style={styles.pickPhotoBtnText}>Upload photo</Text>
                     </Pressable>
-                    <TextInput
-                      value={photoURL}
-                      onChangeText={setPhotoURL}
-                      placeholder="or paste image URL"
-                      placeholderTextColor={C.t3}
-                      style={styles.fieldInput}
-                      autoCapitalize="none"
-                    />
+                    {!isPreset(photoURL) && (
+                      <TextInput
+                        value={photoURL}
+                        onChangeText={setPhotoURL}
+                        placeholder="or paste image URL"
+                        placeholderTextColor={C.t3}
+                        style={styles.fieldInput}
+                        autoCapitalize="none"
+                      />
+                    )}
                   </View>
                 </View>
 
-                <DarkInput label="Name *" value={displayName} onChangeText={setDisplayName}
-                  placeholder="Your full name or nickname" autoCapitalize="words" />
-                <DarkInput label="Username (@handle)" value={username}
+                {/* Preset avatar grid */}
+                <FieldLabel label="Or pick an avatar colour" top />
+                <View style={styles.presetGrid}>
+                  {AVATAR_PRESETS.map((p) => {
+                    const active = photoURL === `preset:${p.key}`;
+                    return (
+                      <Pressable
+                        key={p.key}
+                        onPress={() => setPhotoURL(`preset:${p.key}`)}
+                        style={[styles.presetBtn, active && { borderColor: p.color, borderWidth: 2 }]}
+                      >
+                        <View style={[styles.presetCircle, { backgroundColor: p.color + '28' }]}>
+                          <Text style={{ color: p.color, fontWeight: '700' as const, fontSize: 15 }}>
+                            {displayName?.[0]?.toUpperCase() ?? '?'}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <View style={styles.fieldWrap}>
+                  <Text style={styles.fieldLabel}>Email</Text>
+                  <View style={[styles.fieldInput, { justifyContent: 'center', opacity: 0.6 }]}>
+                    <Text style={{ color: C.t2, fontSize: 14 }}>{profile?.email ?? auth.currentUser?.email ?? ''}</Text>
+                  </View>
+                </View>
+
+                <DarkInput label="Your name *" value={displayName} onChangeText={setDisplayName}
+                  placeholder="e.g. Jane Smith" autoCapitalize="words" />
+                <DarkInput label="Short bio (optional)" value={description} onChangeText={setDescription}
+                  multiline placeholder="Tell your friends about yourself…" />
+                <DarkInput label="Username / @handle (optional)" value={username}
                   onChangeText={(t) => setUsername(t.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                   placeholder="e.g. jane_doe" autoCapitalize="none" />
-                <DarkInput label="Short bio" value={description} onChangeText={setDescription}
-                  multiline placeholder="Tell your friends about yourself…" />
 
                 <FieldLabel label="Gender" top />
                 <View style={styles.chipRow}>
@@ -564,14 +686,7 @@ export default function ProfileScreen() {
               {/* ── Gift Guide ── */}
               <FormSection label="GIFT GUIDE" />
               <View style={styles.formCard}>
-                <FieldLabel label="Price range" />
-                <View style={styles.chipRow}>
-                  {['Under $25', '$25–$50', '$50–$100', '$100+'].map((p) => (
-                    <Chip key={p} label={p} active={priceRange === p} accent={C.goldLux} onPress={() => setPriceRange(p)} />
-                  ))}
-                </View>
-
-                <FieldLabel label="Preferred gift types" top />
+                <FieldLabel label="Preferred gift types" />
                 <ChipGroup options={GIFT_TYPES} selected={preferredGiftTypes}
                   onToggle={(v) => toggle(preferredGiftTypes, setGiftTypes, v)} accent={C.goldLux} />
 
@@ -612,12 +727,18 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(239,68,68,0.30)',
   },
   signOutBtnText: { ...T.small, color: C.error, fontWeight: '600' as const } as any,
+  shareBtn: {
+    paddingHorizontal: S.md, paddingVertical: 8,
+    borderRadius: R.full, borderWidth: 1, borderColor: C.teal + '60',
+    backgroundColor: C.teal + '18',
+  },
+  shareBtnText: { ...T.small, color: C.teal, fontWeight: '600' as const },
   editBtn: {
     paddingHorizontal: S.md, paddingVertical: 8,
-    borderRadius: R.full, borderWidth: 1, borderColor: C.borderMed,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: R.full, borderWidth: 1, borderColor: C.rose + '60',
+    backgroundColor: C.rose + '18',
   },
-  editBtnText: { ...T.small, color: C.t1, fontWeight: '600' as const },
+  editBtnText: { ...T.small, color: C.rose, fontWeight: '600' as const },
 
   scroll: { paddingHorizontal: S.md },
 
@@ -629,9 +750,8 @@ const styles = StyleSheet.create({
   },
   heroInitial: { ...T.h1, color: C.rose },
   heroName: { ...T.h1, color: C.cream, marginTop: S.sm },
-  heroUsername: { ...T.body, color: C.teal, fontWeight: '600' as const },
-  heroDesc: { ...T.body, color: C.t2, textAlign: 'center', maxWidth: 280, marginTop: S.xs },
-  heroPills: { flexDirection: 'row', gap: S.xs, marginTop: S.xs },
+  heroEmail: { ...T.small, color: C.t3, marginTop: 2 },
+  heroPills: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: S.xs, marginTop: S.sm, justifyContent: 'center' as const },
   heroPill: {
     paddingHorizontal: S.sm, paddingVertical: 4,
     borderRadius: R.full, borderWidth: 1, borderColor: C.borderMed,
@@ -655,8 +775,9 @@ const styles = StyleSheet.create({
   guideKey: { ...T.small, color: C.t3 },
   guideVal: { ...T.small, color: C.t1, flex: 1, textAlign: 'right' as const, flexShrink: 1, marginLeft: S.sm },
 
-  nudge: { alignItems: 'center', paddingVertical: S.xl, gap: S.md },
-  nudgeText: { ...T.body, color: C.t3, textAlign: 'center' },
+  nudge: { alignItems: 'center', paddingVertical: S.xl, paddingHorizontal: S.xl, gap: S.sm },
+  nudgeTitle: { ...T.h3, color: C.t1, textAlign: 'center' },
+  nudgeText: { ...T.body, color: C.t3, textAlign: 'center', marginBottom: S.sm },
   nudgeBtn: { backgroundColor: C.rose, borderRadius: R.lg, paddingHorizontal: S.xl, paddingVertical: 14, ...shadow.glow },
   nudgeBtnText: { ...T.h3, color: C.white },
 
@@ -705,4 +826,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: C.borderMed, backgroundColor: 'rgba(255,255,255,0.05)',
   },
   pickPhotoBtnText: { ...T.small, color: C.t1 },
+  presetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm, marginTop: S.xs },
+  presetBtn: {
+    borderRadius: R.full, borderWidth: 1.5, borderColor: 'transparent', padding: 2,
+  },
+  presetCircle: {
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+  },
 });

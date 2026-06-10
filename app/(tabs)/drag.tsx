@@ -1,25 +1,16 @@
 // Clean single implementation for drag screen with native Drax + web fallback
 import { auth } from '@/config/firebaseConfig';
-import { assignGiftToEvent, createEvent, createGift, subscribeToEvents, subscribeToGifts } from '@/lib/firestore';
+import { assignGiftToEvent, createEvent, createGift } from '@/lib/firestore';
+import { useAppData } from '@/contexts/AppDataContext';
 import type { EventItem, Gift } from '@/types/firebase';
 import { useEffect, useState } from 'react';
 import { Alert, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function DragScreen() {
   const uid = auth.currentUser?.uid ?? 'demo-user';
-  const [gifts, setGifts] = useState<Gift[]>([]);
-  const [events, setEvents] = useState<EventItem[]>([]);
+  const { gifts, events } = useAppData();
   const [drax, setDrax] = useState<any | null>(null);
   const [selectedGift, setSelectedGift] = useState<string | null>(null);
-
-  useEffect(() => {
-    const unsubGifts = subscribeToGifts(uid, setGifts);
-    const unsubEvents = subscribeToEvents(uid, setEvents);
-    return () => {
-      unsubGifts();
-      unsubEvents();
-    };
-  }, [uid]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') {

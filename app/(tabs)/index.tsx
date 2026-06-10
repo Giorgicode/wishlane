@@ -4,9 +4,10 @@ import EventDetailsModal from '@/components/event-details-modal';
 import SkeletonBlock from '@/components/skeleton-block';
 import { C, glass, glassStrong, R, S, serif, shadow, spring, T, TAB_BAR_HEIGHT } from '@/constants/design';
 import { useAuth } from '@/hooks/useAuth';
-import { deleteEvent, subscribeToEvents, subscribeToGifts, subscribeToUserProfile, updateEvent } from '@/lib/firestore';
+import { useAppData } from '@/contexts/AppDataContext';
+import { createEvent, deleteEvent, subscribeToUserProfile, updateEvent } from '@/lib/firestore';
 import { toast } from '@/lib/toast';
-import type { EventItem, Gift } from '@/types/firebase';
+import type { EventItem } from '@/types/firebase';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -25,33 +26,15 @@ const DATE_LABEL = TODAY.toLocaleDateString('en-US', {
 }).toUpperCase();
 
 
-function BentoCardLarge({ value, label, color, icon, delay = 0, onPress }: {
-  value: number; label: string; color: string; icon: string; delay?: number; onPress?: () => void;
-}) {
-  return (
-    <Animated.View entering={FadeInLeft.duration(600).delay(delay)} style={[styles.bentoLarge, glass]}>
-      <Pressable style={StyleSheet.absoluteFillObject} onPress={onPress} />
-      <Text style={styles.bentoLargeIcon}>{icon}</Text>
-      <Text style={[styles.bentoLargeValue, { color }]}>{value}</Text>
-      <Text style={styles.bentoLargeLabel}>{label}</Text>
-      <View style={[styles.bentoAccent, { backgroundColor: color }]} />
-    </Animated.View>
-  );
-}
 
-function BentoCardSmall({ value, label, color, icon, delay = 0, onPress }: {
-  value: number; label: string; color: string; icon: string; delay?: number; onPress?: () => void;
+function BentoCardSmall({ value, label, color, delay = 0, onPress }: {
+  value: number; label: string; color: string; icon?: string; delay?: number; onPress?: () => void;
 }) {
   return (
     <Animated.View entering={FadeInRight.duration(600).delay(delay)} style={[styles.bentoSmall, glass]}>
       <Pressable style={StyleSheet.absoluteFillObject} onPress={onPress} />
-      <View style={styles.bentoSmallRow}>
-        <View>
-          <Text style={[styles.bentoSmallValue, { color }]}>{value}</Text>
-          <Text style={styles.bentoSmallLabel}>{label}</Text>
-        </View>
-        <Text style={styles.bentoSmallIcon}>{icon}</Text>
-      </View>
+      <Text style={[styles.bentoSmallValue, { color }]}>{value}</Text>
+      <Text style={styles.bentoSmallLabel}>{label}</Text>
       <View style={[styles.bentoAccent, { backgroundColor: color }]} />
     </Animated.View>
   );
@@ -59,14 +42,14 @@ function BentoCardSmall({ value, label, color, icon, delay = 0, onPress }: {
 
 export default function HomeScreen() {
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [gifts, setGifts] = useState<Gift[]>([]);
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [giftsReady, setGiftsReady] = useState(false);
-  const [eventsReady, setEventsReady] = useState(false);
+  const { events, eventsReady, gifts, giftsReady } = useAppData();
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [editEventForm, setEditEventForm] = useState({ name: '', description: '', date: null as Date | null });
+  const [showAddEvent, setShowAddEvent] = useState(false);
+  const [addEventForm, setAddEventForm] = useState({ name: '', description: '', date: null as Date | null });
+  const [addEventSaving, setAddEventSaving] = useState(false);
   const { uid, user } = useAuth();
   const router = useRouter();
 
@@ -76,11 +59,9 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!uid) return;
     const unsubProfile = subscribeToUserProfile(uid, setUserProfile);
-    const unsubGifts = subscribeToGifts(uid, (g) => { setGifts(g); setGiftsReady(true); });
-    const unsubEvents = subscribeToEvents(uid, (e) => { setEvents(e); setEventsReady(true); });
     heroOpacity.value = withDelay(80, withTiming(1, { duration: 800 }));
     heroY.value = withDelay(80, withSpring(0, spring.gentle));
-    return () => { unsubProfile(); unsubGifts(); unsubEvents(); };
+    return () => { unsubProfile(); };
   }, [uid]);
 
   const getGreeting = () => {
@@ -142,6 +123,28 @@ export default function HomeScreen() {
     } catch { toast.error('Failed to update event'); }
   };
 
+  const handleCalendarDatePress = (date: Date) => {
+    setAddEventForm({ name: '', description: '', date });
+    setShowAddEvent(true);
+  };
+
+  const handleSaveAddEvent = async () => {
+    if (!uid) return;
+    if (!addEventForm.name.trim()) { toast.error('Event name is required'); return; }
+    setAddEventSaving(true);
+    try {
+      await createEvent(uid, {
+        name: addEventForm.name.trim(),
+        description: addEventForm.description.trim(),
+        expirationDate: addEventForm.date,
+      });
+      toast.success('Event created');
+      setShowAddEvent(false);
+      setAddEventForm({ name: '', description: '', date: null });
+    } catch { toast.error('Failed to create event'); }
+    finally { setAddEventSaving(false); }
+  };
+
   const heroStyle = useAnimatedStyle(() => ({
     opacity: heroOpacity.value,
     transform: [{ translateY: heroY.value }],
@@ -157,52 +160,48 @@ export default function HomeScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* ── Hero ───────────────────────────────────────────── */}
-        <Animated.View style={[styles.hero, heroStyle]}>
-          {/* Eyebrow — date + greeting */}
-          <Animated.Text style={styles.eyebrow} entering={FadeIn.duration(500).delay(200)}>
-            {DATE_LABEL}
-          </Animated.Text>
+        {/* ── Hero + Stats (single row) ──────────────────────── */}
+        <Animated.View style={[styles.heroRow, heroStyle]}>
 
-          {/* Gold thin rule */}
-          <Animated.View style={styles.eyebrowRule} entering={FadeInLeft.duration(400).delay(320)} />
+          {/* Left: date + greeting on one line */}
+          <View style={styles.heroLeft}>
+            <Animated.Text style={styles.eyebrow} entering={FadeIn.duration(500).delay(200)}>
+              {DATE_LABEL}
+            </Animated.Text>
+            <Animated.View style={styles.eyebrowRule} entering={FadeInLeft.duration(400).delay(320)} />
+            <Animated.Text
+              style={styles.heroName}
+              entering={FadeInDown.duration(700).delay(260)}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {getGreeting()}, {displayName}.
+            </Animated.Text>
+            {upcomingCount > 0 && (
+              <Animated.View style={styles.heroBadge} entering={FadeIn.duration(400).delay(600)}>
+                <View style={styles.heroBadgeDot} />
+                <Text style={styles.heroBadgeText}>
+                  {upcomingCount} event{upcomingCount > 1 ? 's' : ''} coming up
+                </Text>
+              </Animated.View>
+            )}
+          </View>
 
-          {/* Name — serif editorial */}
-          <Animated.Text style={styles.heroName} entering={FadeInDown.duration(700).delay(260)}>
-            {getGreeting()},{'\n'}{displayName}.
-          </Animated.Text>
-
-          {/* Subline */}
-          {upcomingCount > 0 && (
-            <Animated.View style={styles.heroBadge} entering={FadeIn.duration(400).delay(600)}>
-              <View style={styles.heroBadgeDot} />
-              <Text style={styles.heroBadgeText}>
-                {upcomingCount} event{upcomingCount > 1 ? 's' : ''} coming up
-              </Text>
-            </Animated.View>
-          )}
-        </Animated.View>
-
-        {/* ── Bento stats grid ───────────────────────────────── */}
-        <View style={styles.bentoGrid}>
-          {giftsReady ? (
-            <BentoCardLarge
-              icon="✦" value={gifts.length} label="GIFTS" color={C.rose} delay={340}
-              onPress={() => router.push('/(tabs)/gifts')}
-            />
-          ) : (
-            <Animated.View entering={FadeIn.duration(300)} style={[styles.bentoLarge, glass as any]}>
-              <SkeletonBlock width="40%" height={12} radius={R.xs} />
-              <SkeletonBlock width="55%" height={44} radius={R.sm} />
-              <SkeletonBlock width="35%" height={10} radius={R.xs} />
-            </Animated.View>
-          )}
-          <View style={styles.bentoColumn}>
+          {/* Right: 3 KPI chips in a column */}
+          <View style={styles.statsColumn}>
+            {giftsReady ? (
+              <BentoCardSmall icon="✦" value={gifts.length} label="GIFTS" color={C.rose} delay={340}
+                onPress={() => router.push('/(tabs)/gifts')} />
+            ) : (
+              <Animated.View entering={FadeIn.duration(300)} style={[styles.bentoSmall, glass as any]}>
+                <SkeletonBlock width="60%" height={28} radius={R.sm} />
+                <SkeletonBlock width="45%" height={10} radius={R.xs} />
+              </Animated.View>
+            )}
             {eventsReady ? (
-              <BentoCardSmall
-                icon="◇" value={events.length} label="EVENTS" color={C.teal} delay={420}
-                onPress={() => router.push('/(tabs)/events')}
-              />
+              <BentoCardSmall icon="◇" value={events.length} label="EVENTS" color={C.teal} delay={420}
+                onPress={() => router.push('/(tabs)/events')} />
             ) : (
               <Animated.View entering={FadeIn.duration(300)} style={[styles.bentoSmall, glass as any]}>
                 <SkeletonBlock width="60%" height={28} radius={R.sm} />
@@ -210,10 +209,8 @@ export default function HomeScreen() {
               </Animated.View>
             )}
             {giftsReady ? (
-              <BentoCardSmall
-                icon="✦" value={reservedCount} label="RESERVED" color={C.goldLux} delay={500}
-                onPress={() => router.push('/(tabs)/shared')}
-              />
+              <BentoCardSmall icon="✦" value={reservedCount} label="RESERVED" color={C.goldLux} delay={500}
+                onPress={() => router.push('/(tabs)/shared')} />
             ) : (
               <Animated.View entering={FadeIn.duration(300)} style={[styles.bentoSmall, glass as any]}>
                 <SkeletonBlock width="60%" height={28} radius={R.sm} />
@@ -221,7 +218,7 @@ export default function HomeScreen() {
               </Animated.View>
             )}
           </View>
-        </View>
+        </Animated.View>
 
         {/* ── Upcoming events ────────────────────────────────── */}
         {events.filter(ev => {
@@ -289,8 +286,8 @@ export default function HomeScreen() {
         )}
 
         {/* ── Calendar ───────────────────────────────────────── */}
-        <Animated.View entering={FadeIn.duration(700).delay(540)}>
-          <View style={styles.sectionHead}>
+        <Animated.View entering={FadeIn.duration(700).delay(540)} style={{ width: '100%', alignItems: 'center' }}>
+          <View style={[styles.sectionHead, { alignSelf: 'stretch' }]}>
             <View style={styles.sectionDot} />
             <Text style={styles.sectionLabel}>CALENDAR</Text>
             <View style={styles.sectionRule} />
@@ -300,6 +297,7 @@ export default function HomeScreen() {
             gifts={gifts}
             onEventPress={(evt) => { setSelectedEvent(evt); setShowEventModal(true); }}
             onDatePress={() => {}}
+            onAddEvent={handleCalendarDatePress}
           />
         </Animated.View>
 
@@ -312,39 +310,59 @@ export default function HomeScreen() {
         event={selectedEvent}
         gifts={gifts}
         onClose={() => setShowEventModal(false)}
-
+        onSave={async (eventId, patch) => { if (uid) await updateEvent(uid, eventId, patch); }}
         onDelete={handleDeleteEvent}
-        onEdit={handleEditEvent}
         uid={uid}
         displayName={user?.displayName}
       />
 
-      <Modal visible={!!editingEvent} transparent animationType="slide" onRequestClose={() => setEditingEvent(null)}>
+      {/* ── Add Event from Calendar ─────────────────────────── */}
+      <Modal visible={showAddEvent} transparent animationType="slide" onRequestClose={() => setShowAddEvent(false)}>
         <KeyboardAvoidingView style={styles.modalBg} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalSheet}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Edit Event</Text>
-              <Pressable onPress={() => setEditingEvent(null)} style={styles.sheetClose}>
+              <View>
+                <Text style={styles.sheetTitle}>New Event</Text>
+                {addEventForm.date && (
+                  <Text style={styles.sheetSub}>
+                    {addEventForm.date.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}
+                  </Text>
+                )}
+              </View>
+              <Pressable onPress={() => setShowAddEvent(false)} style={styles.sheetClose}>
                 <Text style={styles.sheetCloseText}>✕</Text>
               </Pressable>
             </View>
             <TextInput
-              style={styles.input} placeholder="Event name" placeholderTextColor={C.t3}
-              value={editEventForm.name} onChangeText={(t) => setEditEventForm({ ...editEventForm, name: t })}
+              style={styles.input}
+              placeholder="Event name *"
+              placeholderTextColor={C.t3}
+              value={addEventForm.name}
+              onChangeText={(t) => setAddEventForm({ ...addEventForm, name: t })}
+              autoFocus
             />
             <TextInput
-              style={[styles.input, { height: 80 }]} placeholder="Description"
-              placeholderTextColor={C.t3} value={editEventForm.description}
-              onChangeText={(t) => setEditEventForm({ ...editEventForm, description: t })} multiline
+              style={[styles.input, { height: 72 }]}
+              placeholder="Description (optional)"
+              placeholderTextColor={C.t3}
+              value={addEventForm.description}
+              onChangeText={(t) => setAddEventForm({ ...addEventForm, description: t })}
+              multiline
             />
             <DatePickerField
-              value={editEventForm.date}
-              onChange={(d) => setEditEventForm({ ...editEventForm, date: d })}
+              value={addEventForm.date}
+              onChange={(d) => setAddEventForm({ ...addEventForm, date: d })}
+              showTime
+              placeholder="Date & time"
               style={styles.input}
             />
-            <Pressable style={styles.primaryBtn} onPress={saveEditEvent}>
-              <Text style={styles.primaryBtnText}>Save Changes</Text>
+            <Pressable
+              style={[styles.primaryBtn, addEventSaving && { opacity: 0.6 }]}
+              onPress={handleSaveAddEvent}
+              disabled={addEventSaving}
+            >
+              <Text style={styles.primaryBtnText}>{addEventSaving ? 'Creating…' : 'Create Event'}</Text>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -380,24 +398,31 @@ const styles = StyleSheet.create({
 
   scroll: { paddingTop: 88, paddingHorizontal: S.md },
 
-  // ── Hero ────────────────────────────────────────────────────
-  hero: { marginBottom: S.xl + 4 },
+  // ── Hero + Stats row ────────────────────────────────────────
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S.md,
+    marginBottom: S.xl,
+  },
+  heroLeft: { flex: 1 },
+  statsColumn: { flexDirection: 'row', gap: S.xs },
   eyebrow: {
     fontSize: 10, fontWeight: '700' as const, letterSpacing: 2.4,
-    color: C.taupe, marginBottom: 10,
+    color: C.taupe, marginBottom: 6,
   },
   eyebrowRule: {
-    height: 1, width: 48, backgroundColor: C.goldLux,
-    marginBottom: 14, opacity: 0.7, borderRadius: 1,
+    height: 1, width: 36, backgroundColor: C.goldLux,
+    marginBottom: 8, opacity: 0.7, borderRadius: 1,
   },
   heroName: {
     fontFamily: serif,
-    fontSize: 44,
+    fontSize: 32,
     fontWeight: '700' as const,
     letterSpacing: -0.5,
     color: C.cream,
-    lineHeight: 50,
-    marginBottom: 16,
+    lineHeight: 36,
+    marginBottom: 10,
   },
   heroBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -416,36 +441,13 @@ const styles = StyleSheet.create({
     color: C.goldLux, letterSpacing: 0.4,
   },
 
-  // ── Bento grid ──────────────────────────────────────────────
-  bentoGrid: {
-    flexDirection: 'row', gap: S.sm,
-    marginBottom: S.xl,
-    height: 180,
-  },
-  bentoLarge: {
-    flex: 1.15,
-    borderRadius: R.xl,
-    padding: S.md,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  bentoLargeIcon: { fontSize: 28, marginBottom: 8 },
-  bentoLargeValue: {
-    fontSize: 52, fontWeight: '800' as const, letterSpacing: -2,
-    lineHeight: 52, marginBottom: 4,
-  },
-  bentoLargeLabel: {
-    fontSize: 10, fontWeight: '700' as const, letterSpacing: 2,
-    color: C.taupe,
-  },
-
-  bentoColumn: { flex: 1, gap: S.sm },
   bentoSmall: {
-    flex: 1,
-    borderRadius: R.xl,
-    padding: S.md,
+    width: 72,
+    borderRadius: R.lg,
+    paddingVertical: S.sm,
+    paddingHorizontal: S.xs,
     justifyContent: 'center',
+    alignItems: 'center',
     overflow: 'hidden',
     position: 'relative',
   },
@@ -455,14 +457,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   bentoSmallValue: {
-    fontSize: 30, fontWeight: '800' as const, letterSpacing: -1,
-    lineHeight: 30,
+    fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.5,
+    lineHeight: 24, textAlign: 'center',
   },
   bentoSmallLabel: {
-    fontSize: 9, fontWeight: '700' as const, letterSpacing: 1.8,
-    color: C.taupe, marginTop: 2,
+    fontSize: 8, fontWeight: '700' as const, letterSpacing: 1.5,
+    color: C.taupe, marginTop: 2, textAlign: 'center',
   },
-  bentoSmallIcon: { fontSize: 22, opacity: 0.7 },
+  bentoSmallIcon: { fontSize: 14, opacity: 0.6 },
 
   bentoAccent: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -502,6 +504,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: S.md,
   },
   sheetTitle: { ...T.h2, color: C.cream },
+  sheetSub: { ...T.small, color: C.teal, marginTop: 2 },
   sheetClose: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   sheetCloseText: { ...T.body, color: C.t3 },
   input: {

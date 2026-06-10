@@ -1,11 +1,15 @@
 import { storage } from '@/config/firebaseConfig';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
-// Upload image using fetch -> blob (works in Expo)
+const MAX_UPLOAD_BYTES = 3 * 1024 * 1024; // 3 MB
+
 export async function uploadImageAsync(uri: string, path: string) {
-  // fetch the file
   const response = await fetch(uri);
   const blob = await response.blob();
+
+  if (blob.size > MAX_UPLOAD_BYTES) {
+    throw new Error('Image is too large. Please choose one under 3 MB.');
+  }
 
   const storageRef = ref(storage, path);
   await uploadBytes(storageRef, blob as any);

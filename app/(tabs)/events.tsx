@@ -8,9 +8,10 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   createEvent, deleteEvent, getEventSharedWith,
   shareEventWithUserByEmail, subscribeToEventAnalytics,
-  subscribeToEvents, subscribeToFriends, subscribeToGifts,
+  subscribeToFriends,
   unshareEventWithUser, updateEvent,
 } from '@/lib/firestore';
+import { useAppData } from '@/contexts/AppDataContext';
 import { toast } from '@/lib/toast';
 import type { EventAnalytic, EventItem, EventShare, Friend, Gift } from '@/types/firebase';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -232,8 +233,7 @@ const sceneStyles = StyleSheet.create({
 });
 
 export default function EventsScreen() {
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [eventsReady, setEventsReady] = useState(false);
+  const { events, eventsReady, gifts } = useAppData();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [showCalendar, setShowCalendar] = useState(false);
 
@@ -264,14 +264,6 @@ export default function EventsScreen() {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [selectedEventForDetails, setSelectedEventForDetails] = useState<EventItem | null>(null);
 
-  // Edit modal
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', date: null as Date | null });
-  const [editSaving, setEditSaving] = useState(false);
-
-  // Gifts (for details modal)
-  const [gifts, setGifts] = useState<Gift[]>([]);
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -290,17 +282,7 @@ export default function EventsScreen() {
 
   useEffect(() => {
     if (!uid) return;
-    return subscribeToEvents(uid, (e) => { setEvents(e); setEventsReady(true); });
-  }, [uid]);
-
-  useEffect(() => {
-    if (!uid) return;
     return subscribeToFriends(uid, setFriends);
-  }, [uid]);
-
-  useEffect(() => {
-    if (!uid) return;
-    return subscribeToGifts(uid, setGifts);
   }, [uid]);
 
   useEffect(() => {
@@ -332,34 +314,9 @@ export default function EventsScreen() {
     ]);
   };
 
-  const handleOpenEdit = (event: EventItem) => {
-    setEditingEvent(event);
-    const raw = event.expirationDate;
-    const date = raw
-      ? ((raw as any).toDate ? (raw as any).toDate() : new Date(raw as any))
-      : null;
-    setEditForm({ name: event.name, description: event.description ?? '', date });
-    setDetailsModalVisible(false);
-    setEditModalVisible(true);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!uid || !editingEvent) return;
-    if (!editForm.name.trim()) { toast.error('Event name is required'); return; }
-    setEditSaving(true);
-    try {
-      await updateEvent(uid, editingEvent.id, {
-        name: editForm.name.trim(),
-        description: editForm.description.trim(),
-        expirationDate: editForm.date ?? null,
-      });
-      setEditModalVisible(false);
-      setEditingEvent(null);
-    } catch {
-      toast.error('Failed to save changes');
-    } finally {
-      setEditSaving(false);
-    }
+  const handleSaveEvent = async (eventId: string, patch: { name: string; description: string; expirationDate: Date | null }) => {
+    if (!uid) return;
+    await updateEvent(uid, eventId, patch);
   };
 
   const openShareModal = (evt: EventItem) => {
@@ -415,7 +372,14 @@ export default function EventsScreen() {
       .catch(() => toast.error('Failed to copy link'));
   };
 
-  const formatDate = (date: any) => date ? new Date(date).toLocaleDateString() : 'No expiration';
+  const formatDate = (date: any) => {
+    if (!date) return 'No date set';
+    const d = (date as any).toDate ? (date as any).toDate() : new Date(date);
+    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
+    if (!hasTime) return dateStr;
+    return `${dateStr} · ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+  };
 
   const isExpired = (date: any): boolean => {
     if (!date) return false;
@@ -549,9 +513,6 @@ export default function EventsScreen() {
               <Pressable onPress={() => openShareModal(item)} hitSlop={6}>
                 <Text style={styles.actionIcon}>Share</Text>
               </Pressable>
-              <Pressable onPress={() => handleOpenEdit(item)} hitSlop={6}>
-                <Text style={styles.actionIcon}>Edit</Text>
-              </Pressable>
               <Pressable onPress={() => handleDeleteEvent(item.id)} hitSlop={6}>
                 <Text style={styles.actionIcon}>Del</Text>
               </Pressable>
@@ -583,7 +544,7 @@ export default function EventsScreen() {
           </View>
           <TextInput style={styles.formInput} placeholder="Event name *" placeholderTextColor={C.t3} value={form.name} onChangeText={(t) => setForm({ ...form, name: t })} />
           <TextInput style={[styles.formInput, { height: 64 }]} placeholder="Description" placeholderTextColor={C.t3} value={form.description} onChangeText={(t) => setForm({ ...form, description: t })} multiline />
-          <DatePickerField value={form.date} onChange={(d) => setForm({ ...form, date: d })} />
+          <DatePickerField value={form.date} onChange={(d) => setForm({ ...form, date: d })} showTime placeholder="Event date & time (optional)" />
           <Pressable style={styles.submitBtn} onPress={addEvent}>
             <Text style={styles.submitBtnText}>Create Event</Text>
           </Pressable>
@@ -693,59 +654,11 @@ export default function EventsScreen() {
         event={selectedEventForDetails}
         gifts={gifts}
         onClose={() => setDetailsModalVisible(false)}
-        onEdit={handleOpenEdit}
+        onSave={handleSaveEvent}
         onDelete={(eventId) => { setDetailsModalVisible(false); handleDeleteEvent(eventId); }}
         uid={uid}
         displayName={user?.displayName}
       />
-
-      {/* ── Edit Event Modal ── */}
-      <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
-        <KeyboardAvoidingView style={styles.modalBg} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={styles.modalSheet}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <View>
-                <Text style={styles.sheetTitle}>Edit Event</Text>
-                <Text style={styles.sheetSub}>{editingEvent?.name}</Text>
-              </View>
-              <Pressable onPress={() => setEditModalVisible(false)} style={styles.closeBtn}>
-                <Text style={styles.closeBtnText}>✕</Text>
-              </Pressable>
-            </View>
-            <TextInput
-              style={styles.sheetInput}
-              placeholder="Event name *"
-              placeholderTextColor={C.t3}
-              value={editForm.name}
-              onChangeText={(t) => setEditForm({ ...editForm, name: t })}
-            />
-            <TextInput
-              style={[styles.sheetInput, { height: 80 }]}
-              placeholder="Description"
-              placeholderTextColor={C.t3}
-              value={editForm.description}
-              onChangeText={(t) => setEditForm({ ...editForm, description: t })}
-              multiline
-            />
-            <DatePickerField
-              value={editForm.date}
-              onChange={(d) => setEditForm({ ...editForm, date: d })}
-              style={styles.sheetInput}
-            />
-            <Pressable
-              style={[styles.primaryBtn, editSaving && styles.btnDisabled]}
-              onPress={handleSaveEdit}
-              disabled={editSaving}
-            >
-              <Text style={styles.primaryBtnText}>{editSaving ? 'Saving…' : 'Save Changes'}</Text>
-            </Pressable>
-            <Pressable style={styles.ghostBtn} onPress={() => setEditModalVisible(false)}>
-              <Text style={styles.ghostBtnText}>Cancel</Text>
-            </Pressable>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
       {/* ── Shared People Modal ── */}
       <Modal visible={sharedPeopleModalVisible} transparent animationType="slide" onRequestClose={() => setSharedPeopleModalVisible(false)}>

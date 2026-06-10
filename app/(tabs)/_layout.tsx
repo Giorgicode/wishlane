@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { C, glass, R, S, shadow, SCREEN, spring, T, TAB_BAR_HEIGHT } from '@/constants/design';
 import { useAuth } from '@/hooks/useAuth';
 import { subscribeToPendingRequests } from '@/lib/firestore';
+import { AppDataProvider } from '@/contexts/AppDataContext';
 import { Tabs } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -141,6 +142,7 @@ function AnimatedTabBar({ state, navigation, insets }: any) {
 /* ─── Layout ───────────────────────────────────────────────── */
 export default function TabLayout() {
   return (
+    <AppDataProvider>
     <Tabs
       tabBar={(props) => <AnimatedTabBar {...props} />}
       screenOptions={{ headerShown: false }}
@@ -155,6 +157,7 @@ export default function TabLayout() {
       <Tabs.Screen name="drag"    options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
+    </AppDataProvider>
   );
 }
 
