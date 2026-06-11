@@ -53,3 +53,7 @@ android/app/debug.keystore
 
 # Claude Code internal
 .claude/
+
+# Firebase
+.firebase/
+firebase-debug.log

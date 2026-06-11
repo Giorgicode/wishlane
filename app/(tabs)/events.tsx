@@ -367,7 +367,7 @@ export default function EventsScreen() {
 
   const handleCopyShareLink = () => {
     if (!selectedEventForSharedPeople?.shareCode) return;
-    Clipboard.setStringAsync(`wishlane://event/${selectedEventForSharedPeople.shareCode}`)
+    Clipboard.setStringAsync(`https://wish-lane.com/event/${selectedEventForSharedPeople.shareCode}`)
       .then(() => toast.info('Share link copied to clipboard', 'Copied'))
       .catch(() => toast.error('Failed to copy link'));
   };
@@ -678,7 +678,7 @@ export default function EventsScreen() {
             {selectedEventForSharedPeople?.shareCode && (
               <View style={styles.shareLinkBox}>
                 <Text style={styles.shareLinkText} numberOfLines={1}>
-                  wishlane://event/{selectedEventForSharedPeople.shareCode}
+                  wish-lane.com/event/{selectedEventForSharedPeople.shareCode}
                 </Text>
                 <Pressable onPress={handleCopyShareLink} hitSlop={8} style={styles.copyBtn}>
                   <Text style={styles.copyBtnText}>Copy</Text>

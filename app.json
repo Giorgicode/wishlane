@@ -11,12 +11,27 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.datafusion.wishlane",
+      "associatedDomains": ["applinks:wish-lane.com"],
       "entitlements": {
         "aps-environment": "development"
       }
     },
     "android": {
       "package": "com.datafusion.wishlane",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "wish-lane.com",
+              "pathPrefix": "/event"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "googleServicesFile": "./app/google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

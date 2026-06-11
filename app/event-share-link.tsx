@@ -1,3 +1,4 @@
+import PublicProfileModal from '@/components/public-profile-modal';
 import { C, glass, glassStrong, R, S, shadow, T } from '@/constants/design';
 import { useAuth } from '@/hooks/useAuth';
 import { getEventByShareCode, reserveGift, subscribeToSharedEventGifts, unreserveGift } from '@/lib/firestore';
@@ -23,6 +24,7 @@ export default function EventShareLinkScreen() {
   const [loading, setLoading] = useState(true);
   const [ownerUid, setOwnerUid] = useState<string | null>(null);
   const [reservingId, setReservingId] = useState<string | null>(null);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
   const giftsUnsubRef = useRef<(() => void) | null>(null);
   const { uid, user } = useAuth();
 
@@ -121,6 +123,14 @@ export default function EventShareLinkScreen() {
           <Text style={styles.eventDate}>Expires {formatDate(event.expirationDate)}</Text>
         </Animated.View>
 
+        {/* Owner row — only shown when logged in */}
+        {!!uid && (
+          <Pressable style={styles.ownerRow} onPress={() => setProfileModalVisible(true)}>
+            <Text style={styles.ownerRowLabel}>Shared by</Text>
+            <Text style={styles.ownerRowArrow}>View profile ›</Text>
+          </Pressable>
+        )}
+
         {/* Section heading */}
         <View style={styles.sectionHead}>
           <View style={styles.sectionDot} />
@@ -196,6 +206,12 @@ export default function EventShareLinkScreen() {
 
         <View style={{ height: 60 }} />
       </ScrollView>
+
+      <PublicProfileModal
+        visible={profileModalVisible}
+        ownerUid={ownerUid}
+        onClose={() => setProfileModalVisible(false)}
+      />
     </View>
   );
 }
@@ -229,6 +245,15 @@ const styles = StyleSheet.create({
   eventTitle: { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.6, color: C.cream, marginBottom: 6, lineHeight: 32 },
   eventDesc: { ...T.body, color: C.t2, marginBottom: S.sm } as any,
   eventDate: { fontSize: 11, color: C.taupe, letterSpacing: 0.4 },
+
+  ownerRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: 'rgba(200,169,90,0.08)', borderRadius: R.lg,
+    borderWidth: 1, borderColor: 'rgba(200,169,90,0.25)',
+    paddingHorizontal: S.md, paddingVertical: 12, marginBottom: S.md,
+  },
+  ownerRowLabel: { ...T.small, color: C.goldLux } as any,
+  ownerRowArrow: { fontSize: 12, color: C.goldLux, fontWeight: '600' as const },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: S.sm },
   sectionDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.rose },

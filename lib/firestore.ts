@@ -152,6 +152,11 @@ export async function updateEvent(uid: string, eventId: string, patch: { name?: 
   await batch.commit();
 }
 
+export async function getPublicProfile(uid: string): Promise<UserProfile | null> {
+  const snap = await getDoc(doc(db, 'users', uid));
+  return snap.exists() ? (snap.data() as UserProfile) : null;
+}
+
 // --- User profile helpers ---
 
 function toUsername(email: string): string {
@@ -213,6 +218,17 @@ export async function shareEventWithUserByEmail(
 
   const eventData = eventSnap.data() as EventItem;
   const ownerName: string = ownerSnap.data()?.displayName ?? sharedByName ?? 'Unknown';
+
+  // Idempotency: bail out if this person already has access
+  const existingSnap = await getDocs(query(
+    collection(db, 'eventShares'),
+    where('eventId', '==', eventId),
+    where('eventOwnerId', '==', eventOwnerId),
+    where('sharedWithUserId', '==', user.uid),
+  ));
+  if (!existingSnap.empty) {
+    throw new Error('This person already has access to the event');
+  }
 
   const sharesCollection = collection(db, 'eventShares');
   const ref = doc(sharesCollection);

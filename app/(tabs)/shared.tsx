@@ -1,4 +1,5 @@
 import AmbientBg from '@/components/ambient-bg';
+import PublicProfileModal from '@/components/public-profile-modal';
 import SkeletonBlock from '@/components/skeleton-block';
 import { C, glass, glassStrong, R, S, shadow, T, TAB_BAR_HEIGHT } from '@/constants/design';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,6 +24,7 @@ export default function SharedScreen() {
   const [detailVisible, setDetailVisible] = useState(false);
   const [loadingGifts, setLoadingGifts] = useState(false);
   const [reservingId, setReservingId] = useState<string | null>(null);
+  const [profileOwnerUid, setProfileOwnerUid] = useState<string | null>(null);
   const giftsUnsubRef = useRef<(() => void) | null>(null);
 
   const { uid, user } = useAuth();
@@ -184,12 +186,14 @@ export default function SharedScreen() {
           renderItem={({ item }) => (
             <Animated.View entering={FadeInUp.duration(350)}>
               <Pressable style={[styles.card, isExpired(item.expirationDate) && { opacity: 0.6 }]} onPress={() => openEventDetail(item)} onLongPress={() => handleLeaveEvent(item)} delayLongPress={500}>
-                {/* Owner avatar */}
-                <View style={styles.ownerBadge}>
+                {/* Owner avatar — tap to view their profile */}
+                <Pressable style={styles.ownerBadge} onPress={() => setProfileOwnerUid(item.eventOwnerId)} hitSlop={8}>
                   <Text style={styles.ownerInitialText}>{(item.ownerName || '?')[0].toUpperCase()}</Text>
-                </View>
+                </Pressable>
                 <View style={styles.cardBody}>
-                  <Text style={styles.ownerName}>{item.ownerName}</Text>
+                  <Pressable onPress={() => setProfileOwnerUid(item.eventOwnerId)}>
+                    <Text style={styles.ownerName}>{item.ownerName}</Text>
+                  </Pressable>
                   <Text style={styles.cardName}>{item.name}</Text>
                   {!!item.description && <Text style={styles.cardDesc} numberOfLines={1}>{item.description}</Text>}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
@@ -208,6 +212,12 @@ export default function SharedScreen() {
         />
       )}
 
+      <PublicProfileModal
+        visible={!!profileOwnerUid}
+        ownerUid={profileOwnerUid}
+        onClose={() => setProfileOwnerUid(null)}
+      />
+
       {/* Event Detail Modal */}
       <Modal visible={detailVisible} transparent animationType="slide" onRequestClose={closeDetail}>
         <View style={styles.modalBg}>
@@ -216,10 +226,11 @@ export default function SharedScreen() {
             <View style={styles.sheetHeader}>
               <View style={{ flex: 1, marginRight: S.sm }}>
                 <Text style={styles.sheetTitle} numberOfLines={2}>{selectedEvent?.name}</Text>
-                <View style={styles.sheetByRow}>
+                <Pressable style={styles.sheetByRow} onPress={() => selectedEvent && setProfileOwnerUid(selectedEvent.eventOwnerId)}>
                   <View style={styles.sheetByDot} />
                   <Text style={styles.sheetBy}>by {selectedEvent?.ownerName}</Text>
-                </View>
+                  <Text style={styles.sheetByArrow}>›</Text>
+                </Pressable>
               </View>
               <Pressable onPress={closeDetail} style={styles.closeBtn}>
                 <Text style={styles.closeBtnText}>✕</Text>
@@ -358,6 +369,7 @@ const styles = StyleSheet.create({
   sheetByRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   sheetByDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.goldLux },
   sheetBy: { ...T.small, color: C.goldLux },
+  sheetByArrow: { fontSize: 16, color: C.goldLux, marginLeft: 2 },
   closeBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: C.border },
   closeBtnText: { ...T.small, color: C.t2 },
   eventDesc: { ...T.body, color: C.t2, marginBottom: S.md },
