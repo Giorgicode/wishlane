@@ -56,9 +56,13 @@ const ACTIVITY_OPTIONS = [
 ];
 
 const SPORT_OPTIONS = [
-  'Soccer', 'Basketball', 'Tennis', 'Running', 'Hiking',
+  'Soccer', 'Basketball', 'Tennis', 'Padel', 'Running',
   'Swimming', 'Cycling', 'Golf', 'Volleyball', 'Yoga',
-  'CrossFit', 'Boxing', 'Skiing', 'Surfing', 'Climbing',
+  'CrossFit', 'Boxing', 'Skiing', 'Snowboarding', 'Surfing',
+  'Climbing', 'Hiking', 'Gym', 'Pilates', 'Martial arts',
+  'Rugby', 'Baseball', 'Cricket', 'Badminton', 'Table tennis',
+  'Triathlon', 'Rowing', 'Ice skating', 'Horse riding', 'Gymnastics',
+  'Formula 1', 'Archery', 'Athletics',
 ];
 
 const DISLIKE_OPTIONS = [
@@ -207,47 +211,25 @@ export default function ProfileScreen() {
   };
 
   const handleShare = async () => {
-    if (!profile) return;
-    const lines: string[] = [];
+    if (!profile || !uid) return;
     const name = profile.displayName || 'My';
-    lines.push(`🎁 ${name}'s Wishlist Profile`);
-    if (profile.username) lines.push(`@${profile.username}`);
-    if (profile.description) lines.push(`\n${profile.description}`);
-    lines.push('');
-    if (profile.favoriteColors?.length)     lines.push(`🎨 Colours: ${profile.favoriteColors.join(', ')}`);
-    if (profile.favoriteFood?.length)       lines.push(`🍜 Food: ${profile.favoriteFood.join(', ')}`);
-    if (profile.favoriteDessert?.length)    lines.push(`🍰 Dessert: ${profile.favoriteDessert.join(', ')}`);
-    if (profile.favoriteActivities?.length) lines.push(`✨ Activities: ${profile.favoriteActivities.join(', ')}`);
-    if (profile.interests?.length)          lines.push(`⚽ Sports: ${profile.interests.join(', ')}`);
-    if (profile.dislikes?.length)           lines.push(`🚫 Not a fan of: ${profile.dislikes.join(', ')}`);
-    if (profile.whatMakesYouHappy)          lines.push(`💛 What makes me happy: ${profile.whatMakesYouHappy}`);
-    const hasGuide = profile.preferredGiftTypes?.length || profile.favoriteBrands?.length ||
-      profile.allergies?.length || profile.clothingSize || profile.shoeSize;
-    if (hasGuide) {
-      lines.push('\n🎀 Gift Guide');
-      if (profile.preferredGiftTypes?.length)  lines.push(`   Types: ${profile.preferredGiftTypes.join(', ')}`);
-      if (profile.favoriteBrands?.length)       lines.push(`   Brands: ${profile.favoriteBrands.join(', ')}`);
-      if (profile.allergies?.length)            lines.push(`   Allergies: ${profile.allergies.join(', ')}`);
-      if (profile.clothingSize)                 lines.push(`   Clothing size: ${profile.clothingSize}`);
-      if (profile.shoeSize)                     lines.push(`   Shoe size: ${profile.shoeSize}`);
-    }
-    const text = lines.join('\n');
+    const profileUrl = `https://wish-lane.com/profile/${uid}`;
+    const title = `${name}'s Wishlist Profile`;
+    const message = `See what ${name} wants as a gift — view their full wishlist profile on Wishlane`;
 
     if (Platform.OS === 'web') {
       if (typeof navigator !== 'undefined' && (navigator as any).share) {
-        try { await (navigator as any).share({ title: `${name}'s Wishlist Profile`, text }); return; }
-        catch { /* fallthrough to clipboard */ }
+        try { await (navigator as any).share({ title, text: message, url: profileUrl }); return; }
+        catch { /* fallthrough */ }
       }
-      // Fallback: copy to clipboard
       try {
-        await (navigator as any).clipboard.writeText(text);
-        toast.success('Copied to clipboard');
+        await (navigator as any).clipboard.writeText(profileUrl);
+        toast.success('Profile link copied to clipboard');
       } catch { toast.error('Could not share profile'); }
       return;
     }
-
     try {
-      await Share.share({ message: text, title: `${name}'s Wishlist Profile` });
+      await Share.share({ message: `${message}\n${profileUrl}`, url: profileUrl, title });
     } catch { toast.error('Could not share profile'); }
   };
 

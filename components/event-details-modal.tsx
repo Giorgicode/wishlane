@@ -1,6 +1,6 @@
 import DatePickerField from '@/components/date-picker-field';
 import { C, glass, R, S, shadow, T } from '@/constants/design';
-import { shareEventWithUserByEmail } from '@/lib/firestore';
+import { assignGiftToEvent, createGift, shareEventWithUserByEmail } from '@/lib/firestore';
 import { toast } from '@/lib/toast';
 import { EventItem, Gift } from '@/types/firebase';
 import { useEffect, useState } from 'react';
@@ -37,6 +37,11 @@ export default function EventDetailsModal({
   const [editDesc, setEditDesc]           = useState('');
   const [editDate, setEditDate]           = useState<Date | null>(null);
   const [saving, setSaving]               = useState(false);
+  const [addGiftOpen, setAddGiftOpen]     = useState(false);
+  const [newGiftName, setNewGiftName]     = useState('');
+  const [newGiftDesc, setNewGiftDesc]     = useState('');
+  const [newGiftPrice, setNewGiftPrice]   = useState('');
+  const [addingGift, setAddingGift]       = useState(false);
 
   const modalScale       = useSharedValue(0.8);
   const modalOpacity     = useSharedValue(0);
@@ -118,6 +123,19 @@ export default function EventDetailsModal({
     finally { setIsSharing(false); }
   };
 
+  const handleAddGift = async () => {
+    if (!uid || !newGiftName.trim()) { toast.error('Gift name is required'); return; }
+    setAddingGift(true);
+    try {
+      const gift = await createGift(uid, { name: newGiftName.trim(), description: newGiftDesc.trim(), price: newGiftPrice.trim() });
+      await assignGiftToEvent(uid, gift.id, event.id);
+      setNewGiftName(''); setNewGiftDesc(''); setNewGiftPrice('');
+      setAddGiftOpen(false);
+      toast.success('Gift added to event');
+    } catch { toast.error('Failed to add gift'); }
+    finally { setAddingGift(false); }
+  };
+
   const handleClose = () => {
     modalScale.value    = withSequence(withTiming(1.05, { duration: 150 }), withTiming(0.8, { duration: 200 }));
     modalTranslateY.value = withTiming(50, { duration: 200 });
@@ -187,11 +205,56 @@ export default function EventDetailsModal({
 
               {/* Gifts */}
               <Animated.View style={styles.giftsSection} entering={SlideInUp.duration(500).delay(1000)} layout={Layout.springify()}>
-                <Text style={styles.sectionTitle}>Gifts for this Event ({eventGifts.length})</Text>
-                {eventGifts.length === 0 ? (
+                <View style={styles.giftsSectionHeader}>
+                  <Text style={styles.sectionTitle}>Gifts for this Event ({eventGifts.length})</Text>
+                  <TouchableOpacity
+                    style={[styles.addGiftBtn, addGiftOpen && styles.addGiftBtnActive]}
+                    onPress={() => setAddGiftOpen(o => !o)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.addGiftBtnText, addGiftOpen && { color: C.t3 }]}>{addGiftOpen ? '✕' : '+ Add Gift'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Inline add-gift form */}
+                {addGiftOpen && (
+                  <Animated.View entering={FadeIn.duration(200)} style={styles.addGiftForm}>
+                    <TextInput
+                      style={styles.addGiftInput}
+                      placeholder="Gift name *"
+                      placeholderTextColor={C.t3}
+                      value={newGiftName}
+                      onChangeText={setNewGiftName}
+                    />
+                    <TextInput
+                      style={styles.addGiftInput}
+                      placeholder="Description (optional)"
+                      placeholderTextColor={C.t3}
+                      value={newGiftDesc}
+                      onChangeText={setNewGiftDesc}
+                    />
+                    <TextInput
+                      style={styles.addGiftInput}
+                      placeholder="Price (optional)"
+                      placeholderTextColor={C.t3}
+                      value={newGiftPrice}
+                      onChangeText={setNewGiftPrice}
+                    />
+                    <TouchableOpacity
+                      style={[styles.addGiftSubmit, addingGift && { opacity: 0.6 }]}
+                      onPress={handleAddGift}
+                      disabled={addingGift}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.addGiftSubmitText}>{addingGift ? 'Adding…' : 'Add to Event'}</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
+                )}
+
+                {eventGifts.length === 0 && !addGiftOpen ? (
                   <Animated.View style={styles.emptyState} entering={ZoomIn.duration(400).delay(1200)}>
-                    <Text style={styles.emptyText}>No gifts assigned yet</Text>
-                    <Text style={styles.emptySubtext}>Add gifts from the Gifts tab and assign them to this event</Text>
+                    <Text style={styles.emptyText}>No gifts yet</Text>
+                    <Text style={styles.emptySubtext}>Tap "+ Add Gift" to add the first one</Text>
                   </Animated.View>
                 ) : (
                   <FlatList
@@ -313,7 +376,15 @@ const styles = StyleSheet.create({
   countdownLabel: { ...T.small, color: C.t3, fontWeight: '600' as const } as any,
   countdownValue: { ...T.small, color: C.rose, fontWeight: '700' as const, flex: 1 } as any,
   giftsSection: { paddingHorizontal: S.lg, paddingBottom: S.sm },
-  sectionTitle: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 2, color: C.taupe, marginBottom: S.sm, marginTop: S.sm },
+  giftsSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: S.sm, marginBottom: S.sm },
+  sectionTitle: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 2, color: C.taupe },
+  addGiftBtn: { paddingHorizontal: S.sm, paddingVertical: 5, borderRadius: R.full, borderWidth: 1, borderColor: C.rose + '60', backgroundColor: C.rose + '14' },
+  addGiftBtnActive: { borderColor: C.border, backgroundColor: 'rgba(255,255,255,0.06)' },
+  addGiftBtnText: { fontSize: 11, fontWeight: '700' as const, color: C.rose },
+  addGiftForm: { ...glass, borderRadius: R.lg, padding: S.md, marginBottom: S.sm, gap: S.xs } as any,
+  addGiftInput: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: R.md, borderWidth: 1, borderColor: C.border, color: C.t1, paddingHorizontal: S.sm, paddingVertical: 10, fontSize: 14 },
+  addGiftSubmit: { backgroundColor: C.rose, borderRadius: R.md, paddingVertical: 12, alignItems: 'center', marginTop: S.xs },
+  addGiftSubmitText: { ...T.small, color: '#fff', fontWeight: '700' as const } as any,
   emptyState: { ...glass, alignItems: 'center', paddingVertical: S.xl, borderRadius: R.lg } as any,
   emptyText: { ...T.body, color: C.cream, textAlign: 'center' } as any,
   emptySubtext: { ...T.small, color: C.t3, textAlign: 'center', marginTop: S.xs, paddingHorizontal: S.lg } as any,

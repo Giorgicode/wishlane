@@ -76,6 +76,7 @@ export default function RootLayout() {
           <Stack.Screen name="event/[shareCode]" options={{ headerShown: false }} />
           <Stack.Screen name="notifications" />
           <Stack.Screen name="(tabs)/profile" />
+          <Stack.Screen name="profile/[uid]" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="light" />
 
@@ -101,8 +102,8 @@ export default function RootLayout() {
           </View>
         )}
 
-        {/* Bell — only shown when signed in */}
-        {!!uid && (
+        {/* Bell — only shown when signed in and not on profile */}
+        {!!uid && !(segments as string[]).includes('profile') && (
           <View pointerEvents="box-none" style={styles.bellContainer}>
             <Pressable onPress={() => router.push('/notifications')} style={styles.bellButton}>
               <View style={styles.bellDot} />
