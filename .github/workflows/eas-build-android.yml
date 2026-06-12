@@ -10,12 +10,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Restore google-services.json from secret
-        # Only run when the secret exists in the repository secrets: avoids accidentally failing or printing
-        if: ${{ secrets.GOOGLE_SERVICES_JSON_B64 != '' }}
+        env:
+          GOOGLE_SERVICES_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
         run: |
-          # Decode base64 secret safely and write to app/google-services.json
-          printf "%s" "${{ secrets.GOOGLE_SERVICES_JSON_B64 }}" | base64 --decode > app/google-services.json
-          echo "Decoded google-services.json"
+          if [ -n "$GOOGLE_SERVICES_B64" ]; then
+            printf "%s" "$GOOGLE_SERVICES_B64" | base64 --decode > app/google-services.json
+            echo "Decoded google-services.json"
+          fi
 
 
       - name: Setup Node
