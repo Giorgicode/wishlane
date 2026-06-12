@@ -275,7 +275,7 @@ export default function FriendsScreen() {
               </View>
             }
             renderItem={({ item }) => (
-              <Animated.View entering={FadeInUp.duration(350)} style={styles.friendCard}>
+              <View style={styles.friendCard}>
                 <Avatar name={item.friendName} email={item.friendEmail} photoURL={item.friendPhotoURL} accent={C.teal} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.friendName}>{item.friendName || item.friendEmail}</Text>
@@ -299,7 +299,7 @@ export default function FriendsScreen() {
                     <Text style={styles.removeBtn}>{removingId === item.id ? '…' : '✕'}</Text>
                   </Pressable>
                 </View>
-              </Animated.View>
+              </View>
             )}
           />
           </>
@@ -316,7 +316,7 @@ export default function FriendsScreen() {
               <>
                 <Text style={styles.sectionLabel}>RECEIVED</Text>
                 {pendingRequests.map((item) => (
-                  <Animated.View key={item.id} entering={FadeInUp.duration(350)} style={[styles.requestCard, { borderLeftColor: C.teal + '60', borderLeftWidth: 3 }]}>
+                  <View key={item.id} style={[styles.requestCard, { borderLeftColor: C.teal + '60', borderLeftWidth: 3 }]}>
                     <Avatar name={item.fromUserName} email={item.fromUserEmail} accent={C.teal} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.requestName}>{item.fromUserName || item.fromUserEmail}</Text>
@@ -330,7 +330,7 @@ export default function FriendsScreen() {
                         <Text style={[styles.actionBtnText, { color: C.error }]}>✕</Text>
                       </Pressable>
                     </View>
-                  </Animated.View>
+                  </View>
                 ))}
               </>
             )}
@@ -338,7 +338,7 @@ export default function FriendsScreen() {
               <>
                 <Text style={[styles.sectionLabel, { marginTop: S.md }]}>SENT</Text>
                 {outgoingRequests.map((item) => (
-                  <Animated.View key={item.id} entering={FadeInUp.duration(350)} style={[styles.requestCard, { opacity: 0.75 }]}>
+                  <View key={item.id} style={[styles.requestCard, { opacity: 0.75 }]}>
                     <View style={[styles.avatarPlaceholder, { width: 44, height: 44, borderRadius: 22, borderColor: C.t3 + '40' }]}>
                       <Text style={[styles.avatarInitial, { color: C.t3 }]}>?</Text>
                     </View>
@@ -350,7 +350,7 @@ export default function FriendsScreen() {
                     <Pressable style={[styles.actionBtn, { backgroundColor: C.error + '15', borderColor: C.error + '40', borderWidth: 1 }]} onPress={() => handleRejectRequest(item)} disabled={processingId === item.id}>
                       <Text style={[styles.actionBtnText, { color: C.error }]}>{processingId === item.id ? '…' : '✕'}</Text>
                     </Pressable>
-                  </Animated.View>
+                  </View>
                 ))}
               </>
             )}
