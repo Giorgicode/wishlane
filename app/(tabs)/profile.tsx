@@ -289,7 +289,26 @@ html,body{background:#07070F;font-family:-apple-system,BlinkMacSystemFont,'Segoe
 .grow-val.warn{color:#FFAA55}
 .footer{text-align:center;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.25);letter-spacing:.5px;page-break-before:avoid}
 .footer strong{color:#FF6B81;font-weight:600}
-</style></head><body><div class="page">
+.toolbar{position:sticky;top:0;z-index:100;background:#0F0F1C;border-bottom:1px solid rgba(255,255,255,.08);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.toolbar-name{font-size:13px;color:rgba(255,255,255,.55)}
+.toolbar-btns{display:flex;gap:8px}
+.btn-pdf{padding:8px 18px;background:#FF6B81;color:#fff;border:none;border-radius:9999px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+.btn-pdf:hover{background:#ff4f6b}
+.btn-copy{padding:8px 18px;background:rgba(90,240,208,.15);color:#5AF0D0;border:1px solid rgba(90,240,208,.4);border-radius:9999px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
+@media print{.toolbar{display:none}}
+</style>
+<script>
+function copyLink(){navigator.clipboard.writeText(window.location.href).then(()=>{var b=document.getElementById('cb');b.textContent='Copied!';setTimeout(()=>{b.textContent='Copy Link'},1500)}).catch(()=>{})}
+</script>
+</head><body>
+<div class="toolbar">
+  <span class="toolbar-name">${p.displayName || ''} — Wishlane</span>
+  <div class="toolbar-btns">
+    <button id="cb" class="btn-copy" onclick="copyLink()">Copy Link</button>
+    <button class="btn-pdf" onclick="window.print()">⬇ Save as PDF</button>
+  </div>
+</div>
+<div class="page">
 <div class="header"><div class="avatar">${avatarInner}</div><div>
 <div class="name">${p.displayName || ''}</div>
 ${p.username ? `<div class="uname">@${p.username}</div>` : ''}
@@ -301,14 +320,21 @@ ${body}
 </div></body></html>`;
   };
 
+  const openProfileTab = (html: string) => {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    (window as any).open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
+  };
+
   const handleSharePDF = async () => {
     if (!profile) return;
     setGeneratingPDF(true);
     try {
       const html = buildProfileHtml(profile);
       if (Platform.OS === 'web') {
-        const win = (window as any).open('', '_blank');
-        if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 400); }
+        openProfileTab(html);
+        toast.success('Click "Save as PDF" on the page to download', 'Profile opened');
         return;
       }
       const Print = await import('expo-print');
@@ -325,8 +351,8 @@ ${body}
     try {
       const html = buildProfileHtml(profile);
       if (Platform.OS === 'web') {
-        const win = (window as any).open('', '_blank');
-        if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 400); }
+        openProfileTab(html);
+        toast.success('Click "Save as PDF" on the page to download', 'Profile opened');
         return;
       }
       const Print = await import('expo-print');
