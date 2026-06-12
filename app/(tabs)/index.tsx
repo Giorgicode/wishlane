@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert, KeyboardAvoidingView, Modal, Platform,
-  Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions,
 } from 'react-native';
 import Animated, {
   FadeIn, FadeInDown, FadeInLeft, FadeInRight, FadeInUp,
@@ -27,11 +27,11 @@ const DATE_LABEL = TODAY.toLocaleDateString('en-US', {
 
 
 
-function BentoCardSmall({ value, label, color, delay = 0, onPress }: {
-  value: number; label: string; color: string; icon?: string; delay?: number; onPress?: () => void;
+function BentoCardSmall({ value, label, color, delay = 0, onPress, stretch }: {
+  value: number; label: string; color: string; icon?: string; delay?: number; onPress?: () => void; stretch?: boolean;
 }) {
   return (
-    <Animated.View entering={FadeInRight.duration(600).delay(delay)} style={[styles.bentoSmall, glass]}>
+    <Animated.View entering={FadeInRight.duration(600).delay(delay)} style={[styles.bentoSmall, glass, stretch && { flex: 1, width: undefined }]}>
       <Pressable style={StyleSheet.absoluteFillObject} onPress={onPress} />
       <Text style={[styles.bentoSmallValue, { color }]}>{value}</Text>
       <Text style={styles.bentoSmallLabel}>{label}</Text>
@@ -52,6 +52,9 @@ export default function HomeScreen() {
   const [addEventSaving, setAddEventSaving] = useState(false);
   const { uid, user } = useAuth();
   const router = useRouter();
+
+  const { width: screenWidth } = useWindowDimensions();
+  const isNarrow = screenWidth < 480;
 
   const heroOpacity = useSharedValue(0);
   const heroY = useSharedValue(32);
@@ -158,13 +161,13 @@ export default function HomeScreen() {
       <View style={styles.blobGold} />
       <View style={styles.blobPurple} />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, isNarrow && styles.scrollNarrow]} showsVerticalScrollIndicator={false}>
 
         {/* ── Hero + Stats (single row) ──────────────────────── */}
-        <Animated.View style={[styles.heroRow, heroStyle]}>
+        <Animated.View style={[styles.heroRow, isNarrow && styles.heroRowNarrow, heroStyle]}>
 
           {/* Left: date + greeting on one line */}
-          <View style={styles.heroLeft}>
+          <View style={[styles.heroLeft, isNarrow && styles.heroLeftNarrow]}>
             <Animated.Text style={styles.eyebrow} entering={FadeIn.duration(500).delay(200)}>
               {DATE_LABEL}
             </Animated.Text>
@@ -172,9 +175,9 @@ export default function HomeScreen() {
             <Animated.Text
               style={styles.heroName}
               entering={FadeInDown.duration(700).delay(260)}
-              numberOfLines={1}
+              numberOfLines={2}
               adjustsFontSizeToFit
-              minimumFontScale={0.5}
+              minimumFontScale={0.6}
             >
               {getGreeting()}, {displayName}.
             </Animated.Text>
@@ -188,31 +191,31 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Right: 3 KPI chips in a column */}
-          <View style={styles.statsColumn}>
+          {/* Stats: 3 KPI chips */}
+          <View style={[styles.statsColumn, isNarrow && styles.statsColumnNarrow]}>
             {giftsReady ? (
               <BentoCardSmall icon="✦" value={gifts.length} label="GIFTS" color={C.rose} delay={340}
-                onPress={() => router.push('/(tabs)/gifts')} />
+                onPress={() => router.push('/(tabs)/gifts')} stretch={isNarrow} />
             ) : (
-              <Animated.View entering={FadeIn.duration(300)} style={[styles.bentoSmall, glass as any]}>
+              <Animated.View entering={FadeIn.duration(300)} style={[styles.bentoSmall, glass as any, isNarrow && { flex: 1 }]}>
                 <SkeletonBlock width="60%" height={28} radius={R.sm} />
                 <SkeletonBlock width="45%" height={10} radius={R.xs} />
               </Animated.View>
             )}
             {eventsReady ? (
               <BentoCardSmall icon="◇" value={events.length} label="EVENTS" color={C.teal} delay={420}
-                onPress={() => router.push('/(tabs)/events')} />
+                onPress={() => router.push('/(tabs)/events')} stretch={isNarrow} />
             ) : (
-              <Animated.View entering={FadeIn.duration(300)} style={[styles.bentoSmall, glass as any]}>
+              <Animated.View entering={FadeIn.duration(300)} style={[styles.bentoSmall, glass as any, isNarrow && { flex: 1 }]}>
                 <SkeletonBlock width="60%" height={28} radius={R.sm} />
                 <SkeletonBlock width="45%" height={10} radius={R.xs} />
               </Animated.View>
             )}
             {giftsReady ? (
               <BentoCardSmall icon="✦" value={reservedCount} label="RESERVED" color={C.goldLux} delay={500}
-                onPress={() => router.push('/(tabs)/shared')} />
+                onPress={() => router.push('/(tabs)/shared')} stretch={isNarrow} />
             ) : (
-              <Animated.View entering={FadeIn.duration(300)} style={[styles.bentoSmall, glass as any]}>
+              <Animated.View entering={FadeIn.duration(300)} style={[styles.bentoSmall, glass as any, isNarrow && { flex: 1 }]}>
                 <SkeletonBlock width="60%" height={28} radius={R.sm} />
                 <SkeletonBlock width="45%" height={10} radius={R.xs} />
               </Animated.View>
@@ -397,6 +400,7 @@ const styles = StyleSheet.create({
   } as any,
 
   scroll: { paddingTop: 88, paddingHorizontal: S.md },
+  scrollNarrow: { paddingTop: 108 },
 
   // ── Hero + Stats row ────────────────────────────────────────
   heroRow: {
@@ -405,8 +409,15 @@ const styles = StyleSheet.create({
     gap: S.md,
     marginBottom: S.xl,
   },
+  heroRowNarrow: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: S.md,
+  },
   heroLeft: { flex: 1 },
+  heroLeftNarrow: { flex: 0 },
   statsColumn: { flexDirection: 'row', gap: S.xs },
+  statsColumnNarrow: { flexDirection: 'row', gap: S.sm, justifyContent: 'space-between' },
   eyebrow: {
     fontSize: 10, fontWeight: '700' as const, letterSpacing: 2.4,
     color: C.taupe, marginBottom: 6,

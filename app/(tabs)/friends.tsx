@@ -265,7 +265,9 @@ export default function FriendsScreen() {
             }
             renderItem={({ item }) => (
               <View style={styles.friendCard}>
-                <Avatar name={item.friendName} email={item.friendEmail} photoURL={item.friendPhotoURL} accent={C.teal} />
+                <Pressable onPress={() => setProfileUid(item.friendId)} hitSlop={4}>
+                  <Avatar name={item.friendName} email={item.friendEmail} photoURL={item.friendPhotoURL} accent={C.teal} />
+                </Pressable>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.friendName}>{item.friendName || item.friendEmail}</Text>
                   {!!item.friendUsername && <Text style={[styles.friendEmail, { color: C.teal }]}>@{item.friendUsername}</Text>}

@@ -8,7 +8,7 @@ import { toast } from '@/lib/toast';
 import type { EventItem, Gift } from '@/types/firebase';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, FlatList, Image, KeyboardAvoidingView,
+  Alert, Dimensions, FlatList, Image, KeyboardAvoidingView,
   Linking, Modal, Platform, Pressable, ScrollView,
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
@@ -21,7 +21,7 @@ import Animated, {
 const FAB_SIZE = 60;
 // Cap width so the form stays compact on wide screens (web)
 const FAB_EXPANDED_W = Math.min(SCREEN.width - 32, 380);
-const FAB_EXPANDED_H = 500;
+const FAB_EXPANDED_H = Math.max(Math.min(Dimensions.get('window').height * 0.58, 460), 360);
 
 /* ─── Gift categories ────────────────────────────────────────── */
 export interface GiftCategory {
@@ -511,56 +511,58 @@ export default function GiftsScreen() {
             </Pressable>
           </View>
 
-          {/* Category photo strip */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.catScroll}
-            contentContainerStyle={styles.catScrollContent}
-          >
-            {GIFT_CATEGORIES.map((cat) => (
-              <CatPhotoCard
-                key={cat.key}
-                cat={cat}
-                selected={form.category === cat.key}
-                onPress={() => setForm({ ...form, category: cat.key })}
-              />
-            ))}
-          </ScrollView>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {/* Category photo strip */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.catScroll}
+              contentContainerStyle={styles.catScrollContent}
+            >
+              {GIFT_CATEGORIES.map((cat) => (
+                <CatPhotoCard
+                  key={cat.key}
+                  cat={cat}
+                  selected={form.category === cat.key}
+                  onPress={() => setForm({ ...form, category: cat.key })}
+                />
+              ))}
+            </ScrollView>
 
-          <TextInput style={styles.formInput} placeholder="Gift name *" placeholderTextColor={C.t3} value={form.name} onChangeText={(t) => setForm({ ...form, name: t })} />
-          <TextInput style={styles.formInput} placeholder="Description (optional)" placeholderTextColor={C.t3} value={form.description} onChangeText={(t) => setForm({ ...form, description: t })} />
-          <TextInput style={styles.formInput} placeholder="Price (e.g. $35)" placeholderTextColor={C.t3} value={form.price} onChangeText={(t) => setForm({ ...form, price: t })} />
+            <TextInput style={styles.formInput} placeholder="Gift name *" placeholderTextColor={C.t3} value={form.name} onChangeText={(t) => setForm({ ...form, name: t })} />
+            <TextInput style={styles.formInput} placeholder="Description (optional)" placeholderTextColor={C.t3} value={form.description} onChangeText={(t) => setForm({ ...form, description: t })} />
+            <TextInput style={styles.formInput} placeholder="Price (e.g. $35)" placeholderTextColor={C.t3} value={form.price} onChangeText={(t) => setForm({ ...form, price: t })} />
 
-          {/* Where to get it */}
-          <View style={styles.typeRow}>
-            {TYPE_OPTS.map((opt) => (
-              <Pressable
-                key={opt.key}
-                style={[styles.typeBtn, form.type === opt.key && { backgroundColor: TYPE_COLOR[opt.key] + '20', borderColor: TYPE_COLOR[opt.key] + '60' }]}
-                onPress={() => setForm({ ...form, type: opt.key })}
-              >
-                <Text style={[styles.typeBtnText, form.type === opt.key && { color: TYPE_COLOR[opt.key] }]}>{opt.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-          {form.type === 'online'   && <TextInput style={styles.formInput} placeholder="Product URL"  placeholderTextColor={C.t3} value={form.link}  onChangeText={(t) => setForm({ ...form, link: t })} />}
-          {form.type === 'brand'    && <TextInput style={styles.formInput} placeholder="Brand name"   placeholderTextColor={C.t3} value={form.brand} onChangeText={(t) => setForm({ ...form, brand: t })} />}
-          {form.type === 'location' && <TextInput style={styles.formInput} placeholder="City / Place" placeholderTextColor={C.t3} value={form.city}  onChangeText={(t) => setForm({ ...form, city: t })} />}
-
-          {!!addError && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{addError}</Text>
+            {/* Where to get it */}
+            <View style={styles.typeRow}>
+              {TYPE_OPTS.map((opt) => (
+                <Pressable
+                  key={opt.key}
+                  style={[styles.typeBtn, form.type === opt.key && { backgroundColor: TYPE_COLOR[opt.key] + '20', borderColor: TYPE_COLOR[opt.key] + '60' }]}
+                  onPress={() => setForm({ ...form, type: opt.key })}
+                >
+                  <Text style={[styles.typeBtnText, form.type === opt.key && { color: TYPE_COLOR[opt.key] }]}>{opt.label}</Text>
+                </Pressable>
+              ))}
             </View>
-          )}
+            {form.type === 'online'   && <TextInput style={styles.formInput} placeholder="Product URL"  placeholderTextColor={C.t3} value={form.link}  onChangeText={(t) => setForm({ ...form, link: t })} />}
+            {form.type === 'brand'    && <TextInput style={styles.formInput} placeholder="Brand name"   placeholderTextColor={C.t3} value={form.brand} onChangeText={(t) => setForm({ ...form, brand: t })} />}
+            {form.type === 'location' && <TextInput style={styles.formInput} placeholder="City / Place" placeholderTextColor={C.t3} value={form.city}  onChangeText={(t) => setForm({ ...form, city: t })} />}
 
-          <Pressable
-            style={[styles.submitBtn, { backgroundColor: selectedCat.color, shadowColor: selectedCat.color, opacity: saving ? 0.6 : 1 }]}
-            onPress={handleAddGift}
-            disabled={saving}
-          >
-            <Text style={styles.submitBtnText}>{saving ? 'Saving…' : 'Add to Wishlist'}</Text>
-          </Pressable>
+            {!!addError && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{addError}</Text>
+              </View>
+            )}
+
+            <Pressable
+              style={[styles.submitBtn, { backgroundColor: selectedCat.color, shadowColor: selectedCat.color, opacity: saving ? 0.6 : 1 }]}
+              onPress={handleAddGift}
+              disabled={saving}
+            >
+              <Text style={styles.submitBtnText}>{saving ? 'Saving…' : 'Add to Wishlist'}</Text>
+            </Pressable>
+          </ScrollView>
         </Animated.View>
       </Animated.View>
 
