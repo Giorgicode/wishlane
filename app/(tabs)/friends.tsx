@@ -111,6 +111,14 @@ export default function FriendsScreen() {
     Linking.openURL(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   };
 
+  const handleInviteWhatsApp = () => {
+    const { body } = buildInviteContent();
+    const url = Platform.OS === 'web'
+      ? `https://wa.me/?text=${encodeURIComponent(body)}`
+      : `whatsapp://send?text=${encodeURIComponent(body)}`;
+    Linking.openURL(url).catch(() => toast.error('WhatsApp not available'));
+  };
+
   const handleInvite = async () => {
     if (Platform.OS === 'web') { handleInviteGmail(); return; }
     const { subject, body } = buildInviteContent();
@@ -403,13 +411,21 @@ export default function FriendsScreen() {
                             <Text style={styles.inviteBtnGmailText}>Gmail</Text>
                           </Pressable>
                           <Pressable style={[styles.inviteBtn, styles.inviteBtnMail]} onPress={handleInviteMailApp}>
-                            <Text style={styles.inviteBtnMailText}>Mail App</Text>
+                            <Text style={styles.inviteBtnMailText}>Mail</Text>
+                          </Pressable>
+                          <Pressable style={[styles.inviteBtn, styles.inviteBtnWA]} onPress={handleInviteWhatsApp}>
+                            <Text style={styles.inviteBtnWAText}>WhatsApp</Text>
                           </Pressable>
                         </View>
                       ) : (
-                        <Pressable style={styles.inviteBtn} onPress={handleInvite}>
-                          <Text style={styles.inviteBtnText}>Send Invite to {friendEmail.trim()}</Text>
-                        </Pressable>
+                        <View style={styles.inviteRow}>
+                          <Pressable style={[styles.inviteBtn, styles.inviteBtnWA, { flex: 1, marginTop: 0 }]} onPress={handleInviteWhatsApp}>
+                            <Text style={[styles.inviteBtnWAText, { textAlign: 'center' }]}>WhatsApp</Text>
+                          </Pressable>
+                          <Pressable style={[styles.inviteBtn, { flex: 1, marginTop: 0 }]} onPress={handleInvite}>
+                            <Text style={[styles.inviteBtnText, { textAlign: 'center' }]}>Send Invite</Text>
+                          </Pressable>
+                        </View>
                       )
                     )}
                   </View>
@@ -602,5 +618,10 @@ const styles = StyleSheet.create({
     backgroundColor: C.teal + '18', borderColor: C.teal + '50',
   },
   inviteBtnMailText: { ...T.body, color: C.teal, fontWeight: '700' as const, textAlign: 'center' as const } as any,
+  inviteBtnWA: {
+    flex: 1, marginTop: 0,
+    backgroundColor: 'rgba(37,211,102,0.12)', borderColor: 'rgba(37,211,102,0.40)',
+  },
+  inviteBtnWAText: { ...T.body, color: '#25D366', fontWeight: '700' as const, textAlign: 'center' as const } as any,
   inviteBtnText: { ...T.body, color: C.teal, fontWeight: '700' as const },
 });

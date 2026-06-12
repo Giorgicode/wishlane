@@ -202,6 +202,8 @@ export default function ProfileScreen() {
 
   const [showFullBio, setShowFullBio] = useState(false);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   const openEdit = () => { if (profile) populateForm(profile); setShowEdit(true); };
 
   const handleSignOut = () => {
@@ -212,27 +214,126 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const handleShare = async () => {
+  const handleShareLink = async () => {
     if (!profile || !uid) return;
     const name = profile.displayName || 'My';
     const profileUrl = `https://wish-lane.com/profile/${uid}`;
     const title = `${name}'s Wishlist Profile`;
     const message = `See what ${name} wants as a gift — view their full wishlist profile on Wishlane`;
-
     if (Platform.OS === 'web') {
       if (typeof navigator !== 'undefined' && (navigator as any).share) {
-        try { await (navigator as any).share({ title, text: message, url: profileUrl }); return; }
-        catch { /* fallthrough */ }
+        try { await (navigator as any).share({ title, text: message, url: profileUrl }); return; } catch { /* fallthrough */ }
       }
-      try {
-        await (navigator as any).clipboard.writeText(profileUrl);
-        toast.success('Profile link copied to clipboard');
-      } catch { toast.error('Could not share profile'); }
+      try { await (navigator as any).clipboard.writeText(profileUrl); toast.success('Profile link copied'); }
+      catch { toast.error('Could not copy link'); }
       return;
     }
+    try { await Share.share({ message: `${message}\n${profileUrl}`, url: profileUrl, title }); }
+    catch { toast.error('Could not share'); }
+  };
+
+  const buildProfileHtml = (p: UserProfile): string => {
+    const initial = (p.displayName || p.email || '?')[0].toUpperCase();
+    const avatarInner = p.photoURL && !p.photoURL.startsWith('preset:')
+      ? `<img src="${p.photoURL}" alt="">`
+      : `<span>${initial}</span>`;
+    const tags = (items: string[], cls = '') =>
+      `<div class="tags">${items.map(t => `<span class="tag ${cls}">${t}</span>`).join('')}</div>`;
+    const sec = (title: string, content: string) =>
+      `<div class="section"><div class="sec-title">${title}</div>${content}</div>`;
+    const grow = (key: string, val: string, cls = '') =>
+      `<div class="grow-row"><span class="grow-key">${key}</span><span class="grow-val ${cls}">${val}</span></div>`;
+    let body = '';
+    if (p.description) body += sec('ABOUT ME', `<p class="body-text">${p.description}</p>`);
+    if (p.favoriteColors?.length)    body += sec('FAVOURITE COLOURS',    tags(p.favoriteColors));
+    if (p.favoriteFood?.length)      body += sec('FAVOURITE FOOD',       tags(p.favoriteFood, 'gold'));
+    if (p.favoriteDessert?.length)   body += sec('FAVOURITE DESSERT',    tags(p.favoriteDessert, 'teal'));
+    if (p.favoriteActivities?.length)body += sec('FAVOURITE ACTIVITIES', tags(p.favoriteActivities));
+    if (p.interests?.length)         body += sec('FAVOURITE SPORTS',     tags(p.interests));
+    if (p.dislikes?.length)          body += sec('NOT A FAN OF',         tags(p.dislikes, 'red'));
+    if (p.whatMakesYouHappy)         body += sec('WHAT MAKES ME HAPPY',  `<p class="body-text">${p.whatMakesYouHappy}</p>`);
+    const hasGuide = p.favoriteBrands?.length || p.allergies?.length || p.clothingSize || p.shoeSize || p.preferredGiftTypes?.length;
+    if (hasGuide) {
+      let g = '';
+      if (p.favoriteBrands?.length)     g += grow('Brands', p.favoriteBrands.join(', '));
+      if (p.allergies?.length)          g += grow('Allergies / dietary', p.allergies.join(', '), 'warn');
+      if (p.clothingSize)               g += grow('Clothing size', p.clothingSize);
+      if (p.shoeSize)                   g += grow('Shoe size', p.shoeSize);
+      if (p.preferredGiftTypes?.length) g += `<div style="margin-top:12px">${tags(p.preferredGiftTypes, 'gold')}</div>`;
+      body += sec('GIFT GUIDE', g);
+    }
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${p.displayName || 'Profile'} — Wishlane</title><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#07070F;color:#EDEDED;padding:40px 32px;max-width:700px;margin:0 auto}
+.header{display:flex;align-items:center;gap:20px;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid rgba(255,255,255,.08)}
+.avatar{width:80px;height:80px;border-radius:50%;background:rgba(255,107,129,.15);border:2px solid rgba(255,107,129,.5);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#FF6B81;overflow:hidden;flex-shrink:0}
+.avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.name{font-size:26px;font-weight:700;color:#F2E8DA;letter-spacing:-.5px}
+.uname{font-size:13px;color:#5AF0D0;margin-top:4px}
+.email{font-size:12px;color:rgba(255,255,255,.45);margin-top:3px}
+.pill{display:inline-block;margin-top:6px;padding:3px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:9999px;font-size:11px;color:rgba(255,255,255,.55)}
+.section{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px;margin-bottom:14px}
+.sec-title{font-size:9px;letter-spacing:1.8px;color:rgba(255,255,255,.28);text-transform:uppercase;margin-bottom:12px;font-weight:600}
+.body-text{font-size:15px;color:rgba(255,255,255,.93);line-height:1.65}
+.tags{display:flex;flex-wrap:wrap;gap:7px}
+.tag{padding:5px 13px;border-radius:9999px;border:1px solid rgba(255,107,129,.45);font-size:12px;color:#FF8F9C}
+.tag.gold{border-color:rgba(200,169,90,.45);color:#C8A95A}
+.tag.teal{border-color:rgba(90,240,208,.4);color:#5AF0D0}
+.tag.red{border-color:rgba(255,95,95,.4);color:#FF7070}
+.grow-row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06);gap:16px}
+.grow-row:last-of-type{border-bottom:none}
+.grow-key{font-size:12px;color:rgba(255,255,255,.55);white-space:nowrap}
+.grow-val{font-size:13px;color:rgba(255,255,255,.93);text-align:right}
+.grow-val.warn{color:#FFAA55}
+.footer{text-align:center;margin-top:32px;padding-top:18px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(255,255,255,.25);letter-spacing:.5px}
+.footer strong{color:#FF6B81;font-weight:600}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<div class="header"><div class="avatar">${avatarInner}</div><div>
+<div class="name">${p.displayName || ''}</div>
+${p.username ? `<div class="uname">@${p.username}</div>` : ''}
+${p.email ? `<div class="email">${p.email}</div>` : ''}
+${p.gender ? `<span class="pill">${p.gender}</span>` : ''}
+</div></div>
+${body}
+<div class="footer">Shared via <strong>Wishlane</strong> — wish-lane.com</div>
+</body></html>`;
+  };
+
+  const handleSharePDF = async () => {
+    if (!profile) return;
+    setGeneratingPDF(true);
     try {
-      await Share.share({ message: `${message}\n${profileUrl}`, url: profileUrl, title });
-    } catch { toast.error('Could not share profile'); }
+      const html = buildProfileHtml(profile);
+      if (Platform.OS === 'web') {
+        const win = (window as any).open('', '_blank');
+        if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 400); }
+        return;
+      }
+      const Print = await import('expo-print');
+      const Sharing = await import('expo-sharing');
+      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: '.pdf', dialogTitle: `${profile.displayName || 'Profile'}.pdf` });
+    } catch { toast.error('Failed to generate PDF'); }
+    finally { setGeneratingPDF(false); }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!profile) return;
+    setGeneratingPDF(true);
+    try {
+      const html = buildProfileHtml(profile);
+      if (Platform.OS === 'web') {
+        const win = (window as any).open('', '_blank');
+        if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 400); }
+        return;
+      }
+      const Print = await import('expo-print');
+      const Sharing = await import('expo-sharing');
+      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: '.pdf', dialogTitle: 'Save PDF' });
+    } catch { toast.error('Failed to download PDF'); }
+    finally { setGeneratingPDF(false); }
   };
 
   const save = async () => {
@@ -326,7 +427,7 @@ export default function ProfileScreen() {
               <Text style={styles.signOutBtnText}>Sign Out</Text>
             </Pressable>
           )}
-          <Pressable onPress={handleShare} style={styles.shareBtn}>
+          <Pressable onPress={() => setShowShareModal(true)} style={styles.shareBtn}>
             <Text style={styles.shareBtnText}>↑ Share</Text>
           </Pressable>
           <Pressable onPress={openEdit} style={styles.editBtn}>
@@ -527,6 +628,49 @@ export default function ProfileScreen() {
           </Animated.View>
         )}
       </ScrollView>
+
+      {/* ═══════════════════════════════════════════════════════
+          SHARE MODAL
+      ═══════════════════════════════════════════════════════ */}
+      <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
+        <Pressable style={styles.shareOverlay} onPress={() => setShowShareModal(false)}>
+          <Pressable style={[styles.shareSheet, { paddingBottom: insets.bottom + S.lg }]} onPress={(e) => e.stopPropagation() as any}>
+            <View style={styles.shareHandle} />
+            <Text style={styles.shareTitle}>Share Profile</Text>
+
+            <Pressable style={styles.shareOption} onPress={() => { setShowShareModal(false); handleShareLink(); }}>
+              <Text style={styles.shareOptionIcon}>🔗</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.shareOptionLabel}>Share Link</Text>
+                <Text style={styles.shareOptionSub}>Copy or send your profile URL</Text>
+              </View>
+              <Text style={styles.shareOptionChevron}>›</Text>
+            </Pressable>
+
+            <Pressable style={styles.shareOption} onPress={() => { setShowShareModal(false); handleSharePDF(); }} disabled={generatingPDF}>
+              <Text style={styles.shareOptionIcon}>📄</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.shareOptionLabel}>Share as PDF</Text>
+                <Text style={styles.shareOptionSub}>Formatted profile card · send to apps</Text>
+              </View>
+              {generatingPDF ? <ActivityIndicator size="small" color={C.rose} /> : <Text style={styles.shareOptionChevron}>›</Text>}
+            </Pressable>
+
+            <Pressable style={styles.shareOption} onPress={() => { setShowShareModal(false); handleDownloadPDF(); }} disabled={generatingPDF}>
+              <Text style={styles.shareOptionIcon}>⬇</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.shareOptionLabel}>Download PDF</Text>
+                <Text style={styles.shareOptionSub}>{Platform.OS === 'web' ? 'Opens print dialog — save as PDF' : 'Save to your device'}</Text>
+              </View>
+              <Text style={styles.shareOptionChevron}>›</Text>
+            </Pressable>
+
+            <Pressable style={styles.shareCancelBtn} onPress={() => setShowShareModal(false)}>
+              <Text style={styles.shareCancelText}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* ═══════════════════════════════════════════════════════
           EDIT MODAL
@@ -780,6 +924,38 @@ const styles = StyleSheet.create({
   nudgeText: { ...T.body, color: C.t3, textAlign: 'center', marginBottom: S.sm },
   nudgeBtn: { backgroundColor: C.rose, borderRadius: R.lg, paddingHorizontal: S.xl, paddingVertical: 14, ...shadow.glow },
   nudgeBtnText: { ...T.h3, color: C.white },
+
+  shareOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'flex-end',
+  },
+  shareSheet: {
+    backgroundColor: C.surface, borderTopLeftRadius: R.xxl, borderTopRightRadius: R.xxl,
+    borderTopWidth: 1, borderColor: C.borderMed,
+    paddingTop: S.sm, paddingHorizontal: S.md,
+  },
+  shareHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: C.borderMed, alignSelf: 'center', marginBottom: S.md,
+  },
+  shareTitle: { ...T.h3, color: C.cream, textAlign: 'center', marginBottom: S.md },
+  shareOption: {
+    flexDirection: 'row', alignItems: 'center', gap: S.sm,
+    paddingVertical: S.md, paddingHorizontal: S.sm,
+    borderRadius: R.lg, marginBottom: S.xs,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1, borderColor: C.border,
+  },
+  shareOptionIcon: { fontSize: 24, width: 36, textAlign: 'center' },
+  shareOptionLabel: { ...T.body, color: C.t1, fontWeight: '600' as const },
+  shareOptionSub: { ...T.micro, color: C.t3, marginTop: 2 },
+  shareOptionChevron: { ...T.h2, color: C.t3 },
+  shareCancelBtn: {
+    marginTop: S.sm, paddingVertical: 14, borderRadius: R.full,
+    backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center',
+    borderWidth: 1, borderColor: C.border,
+  },
+  shareCancelText: { ...T.body, color: C.t2, fontWeight: '600' as const },
 
   modalRoot: { flex: 1, backgroundColor: C.bg, overflow: 'hidden' } as any,
   modalHeader: {
