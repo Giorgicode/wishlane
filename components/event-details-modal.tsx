@@ -38,6 +38,8 @@ export default function EventDetailsModal({
   const [editDate, setEditDate]           = useState<Date | null>(null);
   const [saving, setSaving]               = useState(false);
   const [addGiftOpen, setAddGiftOpen]     = useState(false);
+  const [addGiftMode, setAddGiftMode]     = useState<'pick' | 'create'>('pick');
+  const [selectedGiftIds, setSelectedGiftIds] = useState<string[]>([]);
   const [newGiftName, setNewGiftName]     = useState('');
   const [newGiftDesc, setNewGiftDesc]     = useState('');
   const [newGiftPrice, setNewGiftPrice]   = useState('');
@@ -84,7 +86,8 @@ export default function EventDetailsModal({
 
   if (!event) return null;
 
-  const eventGifts = gifts.filter(g => g.eventId === event.id);
+  const eventGifts      = gifts.filter(g => g.eventId === event.id);
+  const unassignedGifts = gifts.filter(g => !g.eventId);
   const isDirty = editName !== (event.name ?? '') ||
     editDesc !== (event.description ?? '') ||
     editDate?.getTime() !== (event.expirationDate
@@ -135,6 +138,21 @@ export default function EventDetailsModal({
     } catch { toast.error('Failed to add gift'); }
     finally { setAddingGift(false); }
   };
+
+  const handleAddSelected = async () => {
+    if (!uid || selectedGiftIds.length === 0) return;
+    setAddingGift(true);
+    try {
+      await Promise.all(selectedGiftIds.map(id => assignGiftToEvent(uid, id, event.id)));
+      setSelectedGiftIds([]);
+      setAddGiftOpen(false);
+      toast.success(`${selectedGiftIds.length} gift${selectedGiftIds.length !== 1 ? 's' : ''} added to event`);
+    } catch { toast.error('Failed to add gifts'); }
+    finally { setAddingGift(false); }
+  };
+
+  const toggleGiftSelection = (id: string) =>
+    setSelectedGiftIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleClose = () => {
     modalScale.value    = withSequence(withTiming(1.05, { duration: 150 }), withTiming(0.8, { duration: 200 }));
@@ -209,45 +227,111 @@ export default function EventDetailsModal({
                   <Text style={styles.sectionTitle}>Gifts for this Event ({eventGifts.length})</Text>
                   <TouchableOpacity
                     style={[styles.addGiftBtn, addGiftOpen && styles.addGiftBtnActive]}
-                    onPress={() => setAddGiftOpen(o => !o)}
+                    onPress={() => {
+                      if (addGiftOpen) { setSelectedGiftIds([]); setAddGiftMode('pick'); }
+                      setAddGiftOpen(o => !o);
+                    }}
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.addGiftBtnText, addGiftOpen && { color: C.t3 }]}>{addGiftOpen ? '✕' : '+ Add Gift'}</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Inline add-gift form */}
+                {/* Add-gift panel */}
                 {addGiftOpen && (
                   <Animated.View entering={FadeIn.duration(200)} style={styles.addGiftForm}>
-                    <TextInput
-                      style={styles.addGiftInput}
-                      placeholder="Gift name *"
-                      placeholderTextColor={C.t3}
-                      value={newGiftName}
-                      onChangeText={setNewGiftName}
-                    />
-                    <TextInput
-                      style={styles.addGiftInput}
-                      placeholder="Description (optional)"
-                      placeholderTextColor={C.t3}
-                      value={newGiftDesc}
-                      onChangeText={setNewGiftDesc}
-                    />
-                    <TextInput
-                      style={styles.addGiftInput}
-                      placeholder="Price (optional)"
-                      placeholderTextColor={C.t3}
-                      value={newGiftPrice}
-                      onChangeText={setNewGiftPrice}
-                    />
-                    <TouchableOpacity
-                      style={[styles.addGiftSubmit, addingGift && { opacity: 0.6 }]}
-                      onPress={handleAddGift}
-                      disabled={addingGift}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.addGiftSubmitText}>{addingGift ? 'Adding…' : 'Add to Event'}</Text>
-                    </TouchableOpacity>
+                    {/* Mode tabs */}
+                    <View style={styles.modeTabs}>
+                      <TouchableOpacity
+                        style={[styles.modeTab, addGiftMode === 'pick' && styles.modeTabActive]}
+                        onPress={() => setAddGiftMode('pick')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.modeTabText, addGiftMode === 'pick' && styles.modeTabTextActive]}>My Gifts</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modeTab, addGiftMode === 'create' && styles.modeTabActive]}
+                        onPress={() => setAddGiftMode('create')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.modeTabText, addGiftMode === 'create' && styles.modeTabTextActive]}>Create New</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {addGiftMode === 'pick' ? (
+                      unassignedGifts.length === 0 ? (
+                        <View style={styles.pickEmpty}>
+                          <Text style={styles.pickEmptyText}>No unassigned gifts yet</Text>
+                          <Text style={[styles.pickEmptyText, { color: C.t3, fontSize: 11, marginTop: 2 }]}>Switch to "Create New" to add one</Text>
+                        </View>
+                      ) : (
+                        <>
+                          <ScrollView style={styles.pickList} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                            {unassignedGifts.map(gift => {
+                              const checked = selectedGiftIds.includes(gift.id);
+                              return (
+                                <TouchableOpacity
+                                  key={gift.id}
+                                  style={[styles.pickRow, checked && styles.pickRowChecked]}
+                                  onPress={() => toggleGiftSelection(gift.id)}
+                                  activeOpacity={0.8}
+                                >
+                                  <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+                                    {checked && <Text style={styles.checkmark}>✓</Text>}
+                                  </View>
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={styles.pickGiftName}>{gift.name}</Text>
+                                    {!!gift.price && <Text style={styles.pickGiftPrice}>{gift.price}</Text>}
+                                  </View>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                          <TouchableOpacity
+                            style={[styles.addGiftSubmit, (addingGift || selectedGiftIds.length === 0) && { opacity: 0.4 }]}
+                            onPress={handleAddSelected}
+                            disabled={addingGift || selectedGiftIds.length === 0}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.addGiftSubmitText}>
+                              {addingGift ? 'Adding…' : selectedGiftIds.length === 0 ? 'Select gifts above' : `Add ${selectedGiftIds.length} to Event`}
+                            </Text>
+                          </TouchableOpacity>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <TextInput
+                          style={styles.addGiftInput}
+                          placeholder="Gift name *"
+                          placeholderTextColor={C.t3}
+                          value={newGiftName}
+                          onChangeText={setNewGiftName}
+                        />
+                        <TextInput
+                          style={styles.addGiftInput}
+                          placeholder="Description (optional)"
+                          placeholderTextColor={C.t3}
+                          value={newGiftDesc}
+                          onChangeText={setNewGiftDesc}
+                        />
+                        <TextInput
+                          style={styles.addGiftInput}
+                          placeholder="Price (optional)"
+                          placeholderTextColor={C.t3}
+                          value={newGiftPrice}
+                          onChangeText={setNewGiftPrice}
+                        />
+                        <TouchableOpacity
+                          style={[styles.addGiftSubmit, addingGift && { opacity: 0.6 }]}
+                          onPress={handleAddGift}
+                          disabled={addingGift}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.addGiftSubmitText}>{addingGift ? 'Adding…' : 'Add to Event'}</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
                   </Animated.View>
                 )}
 
@@ -420,4 +504,30 @@ const styles = StyleSheet.create({
   actionText: { ...T.body, color: C.rose, fontWeight: '700' as const } as any,
   deleteButton: { backgroundColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.30)' },
   deleteText: { color: C.error },
+
+  modeTabs: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: R.md, padding: 3, marginBottom: S.sm },
+  modeTab: { flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: R.sm - 2 },
+  modeTabActive: { backgroundColor: C.rose },
+  modeTabText: { fontSize: 12, fontWeight: '600' as const, color: C.t3 },
+  modeTabTextActive: { color: '#fff' },
+
+  pickList: { maxHeight: 200, marginBottom: S.sm },
+  pickRow: {
+    flexDirection: 'row', alignItems: 'center', gap: S.sm,
+    paddingVertical: 10, paddingHorizontal: S.sm,
+    borderRadius: R.md, marginBottom: 4,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: C.border,
+  },
+  pickRowChecked: { borderColor: C.rose + '60', backgroundColor: 'rgba(255,107,129,0.08)' },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 6, borderWidth: 1.5,
+    borderColor: C.t3, alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxChecked: { backgroundColor: C.rose, borderColor: C.rose },
+  checkmark: { fontSize: 11, color: '#fff', fontWeight: '700' as const },
+  pickGiftName: { ...T.small, color: C.cream, fontWeight: '600' as const } as any,
+  pickGiftPrice: { fontSize: 11, color: C.teal, marginTop: 1 },
+
+  pickEmpty: { alignItems: 'center', paddingVertical: S.lg },
+  pickEmptyText: { ...T.small, color: C.t2, textAlign: 'center' } as any,
 });

@@ -56,6 +56,7 @@ export interface Friend {
   friendName?: string;
   friendUsername?: string;
   friendPhotoURL?: string;
+  notes?: string;
   createdAt?: Timestamp | Date | null;
   status: 'pending' | 'accepted';
 }

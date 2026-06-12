@@ -376,6 +376,46 @@ export async function unshareEventWithUser(eventOwnerId: string, eventId: string
   await updateDoc(eventRef, { sharedWith: arrayRemove(userId) });
 }
 
+export type EventConnection = { uid: string; name: string; email?: string };
+
+export function subscribeToEventConnections(
+  uid: string,
+  onUpdate: (connections: EventConnection[]) => void
+) {
+  let received: EventConnection[] = [];
+  let sent: EventConnection[] = [];
+
+  const merge = () => {
+    const map = new Map<string, EventConnection>();
+    [...received, ...sent].forEach(c => { if (!map.has(c.uid)) map.set(c.uid, c); });
+    onUpdate(Array.from(map.values()));
+  };
+
+  const unsubReceived = onSnapshot(
+    query(collection(db, 'eventShares'), where('sharedWithUserId', '==', uid)),
+    snap => {
+      received = snap.docs.map(d => {
+        const data = d.data() as EventShare;
+        return { uid: data.eventOwnerId, name: data.ownerName || data.sharedByName || 'User' };
+      });
+      merge();
+    }
+  );
+
+  const unsubSent = onSnapshot(
+    query(collection(db, 'eventShares'), where('eventOwnerId', '==', uid)),
+    snap => {
+      sent = snap.docs.map(d => {
+        const data = d.data() as EventShare;
+        return { uid: data.sharedWithUserId, name: data.sharedWithEmail, email: data.sharedWithEmail };
+      });
+      merge();
+    }
+  );
+
+  return () => { unsubReceived(); unsubSent(); };
+}
+
 // --- Helper function to generate share code ---
 function generateShareCode(): string {
   // Generate a random alphanumeric string (8 characters)
@@ -484,6 +524,10 @@ export async function removeFriend(userId: string, friendId: string) {
   const batch = writeBatch(db);
   [...snapA.docs, ...snapB.docs].forEach((d) => batch.delete(d.ref));
   await batch.commit();
+}
+
+export async function updateFriendNotes(uid: string, friendDocId: string, notes: string) {
+  await updateDoc(doc(db, 'users', uid, 'friends', friendDocId), { notes });
 }
 
 // --- Event Share Link Functions ---
