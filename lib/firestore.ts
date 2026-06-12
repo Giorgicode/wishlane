@@ -92,7 +92,7 @@ export function subscribeToGifts(uid: string, onUpdate: (gifts: Gift[]) => void)
   return onSnapshot(q, (snap) => {
     const items = snap.docs.map((d) => d.data() as Gift);
     onUpdate(items);
-  });
+  }, (err) => console.error('[subscribeToGifts]', err));
 }
 
 export function subscribeToEvents(uid: string, onUpdate: (events: EventItem[]) => void) {
@@ -100,7 +100,7 @@ export function subscribeToEvents(uid: string, onUpdate: (events: EventItem[]) =
   return onSnapshot(q, (snap) => {
     const items = snap.docs.map((d) => d.data() as EventItem);
     onUpdate(items);
-  });
+  }, (err) => console.error('[subscribeToEvents]', err));
 }
 
 export async function updateGift(uid: string, giftId: string, patch: Partial<Gift>) {
@@ -311,7 +311,7 @@ export function subscribeToSharedEventGifts(
   return onSnapshot(giftsQuery, (snap) => {
     const gifts = snap.docs.map((d) => d.data() as Gift);
     onUpdate(gifts);
-  });
+  }, (err) => console.error('[subscribeToSharedEventGifts]', err));
 }
 
 /**
@@ -399,7 +399,8 @@ export function subscribeToEventConnections(
         return { uid: data.eventOwnerId, name: data.ownerName || data.sharedByName || 'User' };
       });
       merge();
-    }
+    },
+    (err) => console.error('[subscribeToEventConnections/received]', err)
   );
 
   const unsubSent = onSnapshot(
@@ -410,7 +411,8 @@ export function subscribeToEventConnections(
         return { uid: data.sharedWithUserId, name: data.sharedWithEmail, email: data.sharedWithEmail };
       });
       merge();
-    }
+    },
+    (err) => console.error('[subscribeToEventConnections/sent]', err)
   );
 
   return () => { unsubReceived(); unsubSent(); };
@@ -723,14 +725,19 @@ export async function rejectFriendRequest(requestId: string) {
 export function subscribeToPendingRequests(userId: string, onUpdate: (requests: FriendRequest[]) => void) {
   const requestsQuery = query(
     collection(db, 'friendRequests'),
-    where('toUserId', '==', userId),
-    where('status', '==', 'pending'),
-    orderBy('createdAt', 'desc')
+    where('toUserId', '==', userId)
   );
   return onSnapshot(requestsQuery, (snap) => {
-    const requests = snap.docs.map((d) => d.data() as FriendRequest);
+    const requests = snap.docs
+      .map((d) => d.data() as FriendRequest)
+      .filter((r) => r.status === 'pending')
+      .sort((a, b) => {
+        const ta = (a.createdAt as any)?.toMillis?.() ?? 0;
+        const tb = (b.createdAt as any)?.toMillis?.() ?? 0;
+        return tb - ta;
+      });
     onUpdate(requests);
-  });
+  }, (err) => console.error('[subscribeToPendingRequests]', err));
 }
 
 // --- Event Analytics Functions ---
@@ -811,7 +818,7 @@ export function subscribeToNotifications(userId: string, onUpdate: (notification
   return onSnapshot(notificationsQuery, (snap) => {
     const notifications = snap.docs.map((d) => d.data() as Notification);
     onUpdate(notifications);
-  });
+  }, (err) => console.error('[subscribeToNotifications]', err));
 }
 
 /**
@@ -856,7 +863,7 @@ export function subscribeToUserProfile(uid: string, onUpdate: (profile: any) => 
     if (snap.exists()) {
       onUpdate(snap.data());
     }
-  });
+  }, (err) => console.error('[subscribeToUserProfile]', err));
 }
 
 /**
@@ -870,7 +877,7 @@ export function subscribeToEventAnalytics(
   const analyticRef = doc(db, 'eventAnalytics', `${eventOwnerId}_${eventId}`);
   return onSnapshot(analyticRef, (snap) => {
     onUpdate(snap.exists() ? (snap.data() as EventAnalytic) : null);
-  });
+  }, (err) => console.error('[subscribeToEventAnalytics]', err));
 }
 
 /**
@@ -882,12 +889,18 @@ export function subscribeToOutgoingRequests(
 ) {
   const q = query(
     collection(db, 'friendRequests'),
-    where('fromUserId', '==', userId),
-    where('status', '==', 'pending'),
-    orderBy('createdAt', 'desc')
+    where('fromUserId', '==', userId)
   );
   return onSnapshot(q, (snap) => {
-    onUpdate(snap.docs.map((d) => d.data() as FriendRequest));
-  });
+    const requests = snap.docs
+      .map((d) => d.data() as FriendRequest)
+      .filter((r) => r.status === 'pending')
+      .sort((a, b) => {
+        const ta = (a.createdAt as any)?.toMillis?.() ?? 0;
+        const tb = (b.createdAt as any)?.toMillis?.() ?? 0;
+        return tb - ta;
+      });
+    onUpdate(requests);
+  }, (err) => console.error('[subscribeToOutgoingRequests]', err));
 }
 
