@@ -201,13 +201,11 @@ export default function ProfileScreen() {
     arr.includes(item) ? set(arr.filter((x) => x !== item)) : set([...arr, item]);
 
   const [showFullBio, setShowFullBio] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const openEdit = () => { if (profile) populateForm(profile); setShowEdit(true); };
 
   const handleSignOut = () => {
-    if (Platform.OS === 'web') {
-      if (window.confirm('Are you sure you want to sign out?')) signOut(auth);
-      return;
-    }
+    if (Platform.OS === 'web') { setConfirmingSignOut(true); return; }
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: () => signOut(auth) },
@@ -314,9 +312,20 @@ export default function ProfileScreen() {
           <Text style={styles.backText}>←</Text>
         </Pressable>
         <View style={styles.topBarRight}>
-          <Pressable onPress={handleSignOut} style={styles.signOutBtn}>
-            <Text style={styles.signOutBtnText}>Sign Out</Text>
-          </Pressable>
+          {confirmingSignOut ? (
+            <View style={styles.signOutConfirm}>
+              <Pressable onPress={() => setConfirmingSignOut(false)} style={styles.signOutCancelBtn}>
+                <Text style={styles.signOutCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={() => signOut(auth)} style={styles.signOutConfirmBtn}>
+                <Text style={styles.signOutConfirmText}>Yes, sign out</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable onPress={handleSignOut} style={styles.signOutBtn}>
+              <Text style={styles.signOutBtnText}>Sign Out</Text>
+            </Pressable>
+          )}
           <Pressable onPress={handleShare} style={styles.shareBtn}>
             <Text style={styles.shareBtnText}>↑ Share</Text>
           </Pressable>
@@ -713,6 +722,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(239,68,68,0.30)',
   },
   signOutBtnText: { ...T.small, color: C.error, fontWeight: '600' as const } as any,
+  signOutConfirm: { flexDirection: 'row', alignItems: 'center', gap: S.xs },
+  signOutCancelBtn: { paddingHorizontal: S.sm, paddingVertical: 8, borderRadius: R.full, borderWidth: 1, borderColor: C.border },
+  signOutCancelText: { ...T.small, color: C.t2, fontWeight: '600' as const } as any,
+  signOutConfirmBtn: { paddingHorizontal: S.sm, paddingVertical: 8, borderRadius: R.full, backgroundColor: 'rgba(239,68,68,0.20)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.50)' },
+  signOutConfirmText: { ...T.small, color: C.error, fontWeight: '700' as const } as any,
   shareBtn: {
     paddingHorizontal: S.md, paddingVertical: 8,
     borderRadius: R.full, borderWidth: 1, borderColor: C.teal + '60',
