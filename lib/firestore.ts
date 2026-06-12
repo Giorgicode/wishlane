@@ -270,7 +270,11 @@ export async function shareEventWithUserByEmail(
 /**
  * Get all events shared with the current user
  */
-export function subscribeToSharedEvents(userId: string, onUpdate: (events: Array<EventItem & { ownerName: string; eventOwnerId: string }>) => void) {
+export function subscribeToSharedEvents(
+  userId: string,
+  onUpdate: (events: Array<EventItem & { ownerName: string; eventOwnerId: string }>) => void,
+  onError?: (err: Error) => void,
+) {
   const sharesQuery = query(
     collection(db, 'eventShares'),
     where('sharedWithUserId', '==', userId)
@@ -290,7 +294,23 @@ export function subscribeToSharedEvents(userId: string, onUpdate: (events: Array
       } as EventItem & { ownerName: string; eventOwnerId: string };
     });
     onUpdate(sharedEvents);
-  });
+  }, (err) => { console.error('[subscribeToSharedEvents]', err); onError?.(err); });
+}
+
+/**
+ * Subscribe to a single shared event's live data (owner's event doc)
+ * so the friend always sees the latest name/description/date.
+ */
+export function subscribeToSharedEventDetail(
+  eventOwnerId: string,
+  eventId: string,
+  onUpdate: (event: EventItem) => void,
+  onError?: (err: Error) => void,
+) {
+  const eventRef = doc(db, 'users', eventOwnerId, 'events', eventId);
+  return onSnapshot(eventRef, (snap) => {
+    if (snap.exists()) onUpdate({ id: snap.id, ...snap.data() } as EventItem);
+  }, (err) => { console.error('[subscribeToSharedEventDetail]', err); onError?.(err); });
 }
 
 /**

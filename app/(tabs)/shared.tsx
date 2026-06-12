@@ -3,12 +3,12 @@ import PublicProfileModal from '@/components/public-profile-modal';
 import SkeletonBlock from '@/components/skeleton-block';
 import { C, glass, glassStrong, R, S, shadow, T, TAB_BAR_HEIGHT } from '@/constants/design';
 import { useAuth } from '@/hooks/useAuth';
-import { reserveGift, subscribeToSharedEventGifts, subscribeToSharedEvents, trackEventView, trackGiftReservation, unshareEventWithUser, unreserveGift } from '@/lib/firestore';
+import { reserveGift, subscribeToSharedEventDetail, subscribeToSharedEventGifts, subscribeToSharedEvents, trackEventView, trackGiftReservation, unshareEventWithUser, unreserveGift } from '@/lib/firestore';
 import { toast } from '@/lib/toast';
 import type { EventItem, Gift } from '@/types/firebase';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert, FlatList, Modal, Pressable,
+  Alert, FlatList, Linking, Modal, Pressable,
   ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
@@ -26,6 +26,7 @@ export default function SharedScreen() {
   const [reservingId, setReservingId] = useState<string | null>(null);
   const [profileOwnerUid, setProfileOwnerUid] = useState<string | null>(null);
   const giftsUnsubRef = useRef<(() => void) | null>(null);
+  const eventUnsubRef = useRef<(() => void) | null>(null);
 
   const { uid, user } = useAuth();
 
@@ -49,15 +50,26 @@ export default function SharedScreen() {
     });
   }, [uid]);
 
-  // Clean up gifts subscription on unmount
-  useEffect(() => () => { giftsUnsubRef.current?.(); }, []);
+  // Clean up subscriptions on unmount
+  useEffect(() => () => { giftsUnsubRef.current?.(); eventUnsubRef.current?.(); }, []);
 
   const openEventDetail = (event: SharedEvent) => {
     setSelectedEvent(event);
     setLoadingGifts(true);
     setEventGifts([]);
     setDetailVisible(true);
+
+    // Tear down previous subscriptions
     giftsUnsubRef.current?.();
+    eventUnsubRef.current?.();
+
+    // Live event data (name/description/date might have changed since share was created)
+    eventUnsubRef.current = subscribeToSharedEventDetail(
+      event.eventOwnerId,
+      event.id,
+      (liveEvent) => setSelectedEvent((prev) => prev ? { ...prev, ...liveEvent } : prev),
+    );
+
     giftsUnsubRef.current = subscribeToSharedEventGifts(
       event.eventOwnerId,
       event.id,
@@ -71,6 +83,8 @@ export default function SharedScreen() {
     setDetailVisible(false);
     giftsUnsubRef.current?.();
     giftsUnsubRef.current = null;
+    eventUnsubRef.current?.();
+    eventUnsubRef.current = null;
   };
 
   const handleLeaveEvent = (event: SharedEvent) => {
@@ -238,6 +252,18 @@ export default function SharedScreen() {
               </Pressable>
             </View>
 
+            {!!selectedEvent?.expirationDate && (
+              <View style={styles.eventDateRow}>
+                <Text style={styles.eventDateLabel}>
+                  {isExpired(selectedEvent.expirationDate) ? '⚑ Expired' : '◷'}{' '}
+                  {formatDate(selectedEvent.expirationDate)}
+                </Text>
+                {isExpired(selectedEvent.expirationDate) && (
+                  <View style={styles.expiredPill}><Text style={styles.expiredPillText}>Expired</Text></View>
+                )}
+              </View>
+            )}
+
             {!!selectedEvent?.description && (
               <Text style={styles.eventDesc}>{selectedEvent.description}</Text>
             )}
@@ -256,15 +282,35 @@ export default function SharedScreen() {
                 {eventGifts.map((gift) => {
                   const isMyReservation = gift.reservedBy === uid;
                   const isTaken = !!(gift.reservedBy && !isMyReservation);
+                  const whereToGet = gift.link || gift.brand
+                    ? (gift.link ? `🔗 ${gift.link}` : `🏷 ${gift.brand}`)
+                    : gift.city ? `📍 ${gift.city}${gift.place ? ` · ${gift.place}` : ''}`
+                    : null;
                   return (
                     <View key={gift.id} style={[styles.giftCard, isTaken && { opacity: 0.55 }]}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.giftName}>{gift.name}</Text>
                         {!!gift.description && <Text style={styles.giftDesc}>{gift.description}</Text>}
-                        {!!gift.price && (
-                          <View style={styles.giftPricePill}>
-                            <Text style={styles.giftPriceText}>{gift.price}</Text>
-                          </View>
+                        <View style={styles.giftMeta}>
+                          {!!gift.price && (
+                            <View style={styles.giftPricePill}>
+                              <Text style={styles.giftPriceText}>{gift.price}</Text>
+                            </View>
+                          )}
+                          {!!gift.category && (
+                            <View style={styles.giftCatPill}>
+                              <Text style={styles.giftCatText}>{gift.category}</Text>
+                            </View>
+                          )}
+                        </View>
+                        {!!whereToGet && (
+                          gift.link ? (
+                            <Pressable onPress={() => Linking.openURL(gift.link!).catch(() => {})} hitSlop={4}>
+                              <Text style={styles.giftLink} numberOfLines={1}>🔗 Open link</Text>
+                            </Pressable>
+                          ) : (
+                            <Text style={styles.giftWhere} numberOfLines={1}>{whereToGet}</Text>
+                          )
                         )}
                         {gift.reservedBy ? (
                           <Text style={[styles.reservationBadge, isMyReservation ? { color: C.teal } : { color: C.warning }]}>
@@ -373,6 +419,8 @@ const styles = StyleSheet.create({
   sheetByArrow: { fontSize: 16, color: C.goldLux, marginLeft: 2 },
   closeBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: C.border },
   closeBtnText: { ...T.small, color: C.t2 },
+  eventDateRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: S.sm },
+  eventDateLabel: { fontSize: 12, fontWeight: '600' as const, color: C.goldLux },
   eventDesc: { ...T.body, color: C.t2, marginBottom: S.md },
 
   giftsHeadRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: S.sm },
@@ -389,8 +437,13 @@ const styles = StyleSheet.create({
   },
   giftName: { ...T.h3, color: C.cream },
   giftDesc: { ...T.small, color: C.t2, marginTop: 2 },
-  giftPricePill: { backgroundColor: 'rgba(90,240,208,0.12)', borderRadius: R.full, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, marginTop: 4, borderWidth: 1, borderColor: 'rgba(90,240,208,0.3)' },
+  giftMeta: { flexDirection: 'row', gap: S.xs, marginTop: 4, flexWrap: 'wrap' },
+  giftPricePill: { backgroundColor: 'rgba(90,240,208,0.12)', borderRadius: R.full, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(90,240,208,0.3)' },
   giftPriceText: { fontSize: 10, fontWeight: '700' as const, color: C.teal },
+  giftCatPill: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: R.full, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: C.border },
+  giftCatText: { fontSize: 10, fontWeight: '600' as const, color: C.t2, textTransform: 'capitalize' as const },
+  giftLink: { fontSize: 11, fontWeight: '600' as const, color: C.rose, marginTop: 4, textDecorationLine: 'underline' as const },
+  giftWhere: { fontSize: 11, color: C.t2, marginTop: 4 },
   availableBadge: { fontSize: 10, fontWeight: '600' as const, color: C.success, marginTop: S.xs },
   reservationBadge: { fontSize: 10, fontWeight: '600' as const, marginTop: S.xs },
   reserveBtn: {
