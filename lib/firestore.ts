@@ -669,9 +669,10 @@ export async function acceptFriendRequest(requestId: string) {
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(requestRef);
-    if (!snap.exists() || snap.data()?.status !== 'pending') {
-      throw new Error('Friend request is no longer pending');
-    }
+    if (!snap.exists()) throw new Error('Friend request not found');
+    const currentStatus = snap.data()?.status;
+    if (currentStatus === 'accepted') return; // idempotent — already done (tx retry or double-tap)
+    if (currentStatus !== 'pending') throw new Error('Friend request is no longer available');
     const ts = serverTimestamp();
     tx.update(requestRef, { status: 'accepted' });
     tx.set(fromFriendRef, {

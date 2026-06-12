@@ -11,7 +11,7 @@ import type { EventConnection, UserSearchResult } from '@/lib/firestore';
 import PublicProfileModal from '@/components/public-profile-modal';
 import { toast } from '@/lib/toast';
 import type { Friend, FriendRequest } from '@/types/firebase';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, FlatList, Image, KeyboardAvoidingView, Linking,
   Modal, Platform, Pressable, ScrollView, Share,
@@ -39,6 +39,7 @@ export default function FriendsScreen() {
   const [isSending, setIsSending] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const acceptingRef = useRef(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'friends' | 'requests'>('friends');
   const [friendSearch, setFriendSearch] = useState('');
@@ -135,12 +136,14 @@ export default function FriendsScreen() {
   };
 
   const handleAcceptRequest = async (request: FriendRequest) => {
+    if (acceptingRef.current) return;
+    acceptingRef.current = true;
     setProcessingId(request.id);
     try {
       await acceptFriendRequest(request.id);
       toast.success(`You're now friends with ${request.fromUserName || request.fromUserEmail}`, 'Friends!');
     } catch (err: any) { toast.error(err.message || 'Failed to accept'); }
-    finally { setProcessingId(null); }
+    finally { setProcessingId(null); acceptingRef.current = false; }
   };
 
   const handleRejectRequest = async (request: FriendRequest) => {
