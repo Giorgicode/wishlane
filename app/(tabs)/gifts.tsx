@@ -186,14 +186,14 @@ function GiftCard({ item, onEdit, onDelete, onAssign, eventName }: {
           <View style={[StyleSheet.absoluteFillObject, { backgroundColor: accent + '14', borderRadius: R.md }]} />
         </View>
         <View style={styles.actionRow}>
-          <Pressable onPress={onEdit} hitSlop={8} style={styles.iconBtn}>
+          <Pressable onPress={onEdit} hitSlop={6} style={styles.iconBtn}>
             <Text style={styles.iconBtnText}>Edit</Text>
           </Pressable>
-          <Pressable onPress={onAssign} hitSlop={8} style={[styles.iconBtn, styles.iconBtnAssign]}>
-            <Text style={[styles.iconBtnText, { color: C.rose }]}>Assign</Text>
+          <Pressable onPress={onAssign} hitSlop={6} style={[styles.iconBtn, styles.iconBtnAssign]}>
+            <Text style={[styles.iconBtnText, styles.iconBtnAssignText]}>Assign</Text>
           </Pressable>
-          <Pressable onPress={onDelete} hitSlop={8} style={styles.iconBtn}>
-            <Text style={styles.iconBtnText}>Del</Text>
+          <Pressable onPress={onDelete} hitSlop={6} style={[styles.iconBtn, styles.iconBtnDel]}>
+            <Text style={[styles.iconBtnText, styles.iconBtnDelText]}>Del</Text>
           </Pressable>
         </View>
       </View>
@@ -703,7 +703,7 @@ function EmptyState() {
 /* ─── Styles ─────────────────────────────────────────────────── */
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg, overflow: 'hidden' } as any,
-  listContent: { paddingHorizontal: S.md, paddingTop: 80, paddingBottom: TAB_BAR_HEIGHT + FAB_SIZE + 40 },
+  listContent: { paddingHorizontal: S.md, paddingTop: 80, paddingBottom: TAB_BAR_HEIGHT + FAB_SIZE + 40, maxWidth: 712, alignSelf: 'center' as const, width: '100%' },
 
   header: { marginBottom: S.xl },
   eyebrow: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 2.4, color: C.taupe, marginBottom: 8 },
@@ -748,6 +748,9 @@ const styles = StyleSheet.create({
     WebkitBackdropFilter: 'blur(20px)',
     marginBottom: S.sm,
     overflow: 'hidden',
+    maxWidth: 680,
+    alignSelf: 'center' as const,
+    width: '100%',
     ...shadow.sm,
   } as any,
   cardStrip: { width: 3 },
@@ -764,13 +767,16 @@ const styles = StyleSheet.create({
   cardLink: { ...T.small, color: C.teal, textDecorationLine: 'underline' } as any,
   cardMeta: { ...T.small, color: C.taupe } as any,
 
-  cardRight: { width: THUMB_SIZE + 12, alignItems: 'center', justifyContent: 'center', paddingRight: S.xs, gap: 4 },
-  thumbWrap: { width: THUMB_SIZE, height: THUMB_SIZE - 8, borderRadius: R.md, overflow: 'hidden', borderWidth: 1.5 },
+  cardRight: { width: THUMB_SIZE + 16, alignItems: 'center', justifyContent: 'center', paddingRight: S.sm, paddingLeft: 4, gap: 6 },
+  thumbWrap: { width: THUMB_SIZE - 4, height: THUMB_SIZE - 12, borderRadius: R.md, overflow: 'hidden', borderWidth: 1.5 },
   thumb: { width: '100%', height: '100%' } as any,
-  actionRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
-  iconBtn: { paddingHorizontal: 5, paddingVertical: 3, alignItems: 'center', justifyContent: 'center' },
-  iconBtnText: { fontSize: 10, color: C.t3, fontWeight: '600' as const, letterSpacing: 0.3 },
-  iconBtnAssign: { backgroundColor: 'rgba(255,107,129,0.08)', borderRadius: R.xs, borderWidth: 1, borderColor: C.rose + '30' },
+  actionRow: { flexDirection: 'column', alignItems: 'stretch', gap: 3, width: THUMB_SIZE - 4 },
+  iconBtn: { paddingHorizontal: 6, paddingVertical: 4, alignItems: 'center', justifyContent: 'center', borderRadius: R.xs, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.04)' },
+  iconBtnText: { fontSize: 10, color: C.t2, fontWeight: '600' as const, letterSpacing: 0.3 },
+  iconBtnAssign: { backgroundColor: 'rgba(255,107,129,0.12)', borderColor: C.rose + '40' },
+  iconBtnAssignText: { color: C.rose },
+  iconBtnDel: { backgroundColor: 'rgba(248,113,113,0.07)', borderColor: 'rgba(248,113,113,0.25)' },
+  iconBtnDelText: { color: C.error },
 
   eventPill: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   eventPillDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.rose, opacity: 0.8 },
