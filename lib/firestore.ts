@@ -504,13 +504,12 @@ async function getUserByEmail(email: string) {
 export function subscribeToFriends(userId: string, onUpdate: (friends: Friend[]) => void) {
   const friendsQuery = query(
     collection(db, 'users', userId, 'friends'),
-    where('status', '==', 'accepted'),
     orderBy('createdAt', 'desc')
   );
   return onSnapshot(friendsQuery, (snap) => {
     const friends = snap.docs.map((d) => d.data() as Friend);
     onUpdate(friends);
-  });
+  }, (err) => console.error('[subscribeToFriends]', err));
 }
 
 /**
