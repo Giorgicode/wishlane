@@ -262,7 +262,7 @@ export default function EventDetailsModal({
                       unassignedGifts.length === 0 ? (
                         <View style={styles.pickEmpty}>
                           <Text style={styles.pickEmptyText}>No unassigned gifts yet</Text>
-                          <Text style={[styles.pickEmptyText, { color: C.t3, fontSize: 11, marginTop: 2 }]}>Switch to "Create New" to add one</Text>
+                          <Text style={[styles.pickEmptyText, { color: C.t3, fontSize: 11, marginTop: 2 }]}>Switch to &quot;Create New&quot; to add one</Text>
                         </View>
                       ) : (
                         <>
@@ -338,7 +338,7 @@ export default function EventDetailsModal({
                 {eventGifts.length === 0 && !addGiftOpen ? (
                   <Animated.View style={styles.emptyState} entering={ZoomIn.duration(400).delay(1200)}>
                     <Text style={styles.emptyText}>No gifts yet</Text>
-                    <Text style={styles.emptySubtext}>Tap "+ Add Gift" to add the first one</Text>
+                    <Text style={styles.emptySubtext}>Tap &quot;+ Add Gift&quot; to add the first one</Text>
                   </Animated.View>
                 ) : (
                   <FlatList

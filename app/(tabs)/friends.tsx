@@ -18,7 +18,7 @@ import {
   Modal, Platform, Pressable, ScrollView, Share,
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 function Avatar({ name, email, photoURL, size = 44, accent = C.rose }: { name?: string; email?: string; photoURL?: string | null; size?: number; accent?: string }) {
   const initial = (name || email || '?')[0].toUpperCase();
@@ -271,7 +271,7 @@ export default function FriendsScreen() {
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptySearch}>
-                <Text style={styles.emptySearchText}>No friends match "{friendSearch}"</Text>
+                <Text style={styles.emptySearchText}>No friends match &quot;{friendSearch}&quot;</Text>
               </View>
             }
             renderItem={({ item }) => (
@@ -282,7 +282,7 @@ export default function FriendsScreen() {
                   {!!item.friendUsername && <Text style={[styles.friendEmail, { color: C.teal }]}>@{item.friendUsername}</Text>}
                   <Text style={styles.friendEmail}>{item.friendEmail}</Text>
                   {!!item.notes && (
-                    <Text style={styles.notesPreview} numberOfLines={1}>"{item.notes}"</Text>
+                    <Text style={styles.notesPreview} numberOfLines={1}>&quot;{item.notes}&quot;</Text>
                   )}
                 </View>
                 <View style={styles.friendActions}>

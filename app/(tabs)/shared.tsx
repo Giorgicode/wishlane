@@ -180,7 +180,7 @@ export default function SharedScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptySearch}>
-              <Text style={styles.emptySearchText}>No events match "{searchQuery}"</Text>
+              <Text style={styles.emptySearchText}>No events match &quot;{searchQuery}&quot;</Text>
             </View>
           }
           renderItem={({ item }) => (
