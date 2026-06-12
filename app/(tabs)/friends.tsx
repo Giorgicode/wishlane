@@ -98,22 +98,30 @@ export default function FriendsScreen() {
     finally { setIsSending(false); }
   };
 
-  const handleInvite = async () => {
+  const buildInviteContent = () => {
     const email = friendEmail.trim();
     const senderName = user?.displayName || user?.email || 'A friend';
     const subject = `${senderName} invited you to Wishlane`;
     const body = `Hey!\n\n${senderName} wants to connect with you on Wishlane — a gift wishlist app where friends share what they actually want.\n\nSign up for free at https://wish-lane.com\n\nSee you there!`;
+    return { email, subject, body };
+  };
 
-    if (Platform.OS === 'web') {
-      const mailto = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      Linking.openURL(mailto);
-      return;
-    }
+  const handleInviteGmail = () => {
+    const { email, subject, body } = buildInviteContent();
+    const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    Linking.openURL(url);
+  };
+
+  const handleInviteMailApp = () => {
+    const { email, subject, body } = buildInviteContent();
+    Linking.openURL(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+  };
+
+  const handleInvite = async () => {
+    if (Platform.OS === 'web') { handleInviteGmail(); return; }
+    const { subject, body } = buildInviteContent();
     try {
-      await Share.share({
-        message: `${body}`,
-        title: subject,
-      });
+      await Share.share({ message: body, title: subject });
     } catch { toast.error('Could not open share'); }
   };
 
@@ -408,9 +416,20 @@ export default function FriendsScreen() {
                         : 'No users found for that search'}
                     </Text>
                     {friendEmail.includes('@') && (
-                      <Pressable style={styles.inviteBtn} onPress={handleInvite}>
-                        <Text style={styles.inviteBtnText}>Send Invite to {friendEmail.trim()}</Text>
-                      </Pressable>
+                      Platform.OS === 'web' ? (
+                        <View style={styles.inviteRow}>
+                          <Pressable style={[styles.inviteBtn, styles.inviteBtnGmail]} onPress={handleInviteGmail}>
+                            <Text style={styles.inviteBtnGmailText}>Gmail</Text>
+                          </Pressable>
+                          <Pressable style={[styles.inviteBtn, styles.inviteBtnMail]} onPress={handleInviteMailApp}>
+                            <Text style={styles.inviteBtnMailText}>Mail App</Text>
+                          </Pressable>
+                        </View>
+                      ) : (
+                        <Pressable style={styles.inviteBtn} onPress={handleInvite}>
+                          <Text style={styles.inviteBtnText}>Send Invite to {friendEmail.trim()}</Text>
+                        </Pressable>
+                      )
                     )}
                   </Animated.View>
                 ) : (
@@ -586,10 +605,21 @@ const styles = StyleSheet.create({
   },
   notFoundTitle: { ...T.body, color: C.t1, fontWeight: '700' as const },
   notFoundSub: { ...T.small, color: C.t3, textAlign: 'center' as const },
+  inviteRow: { flexDirection: 'row', gap: S.sm, marginTop: S.sm, width: '100%' },
   inviteBtn: {
     marginTop: S.sm, paddingVertical: 12, paddingHorizontal: S.lg,
     backgroundColor: C.teal + '18', borderRadius: R.full,
     borderWidth: 1, borderColor: C.teal + '50',
   },
+  inviteBtnGmail: {
+    flex: 1, marginTop: 0,
+    backgroundColor: 'rgba(234,67,53,0.12)', borderColor: 'rgba(234,67,53,0.40)',
+  },
+  inviteBtnGmailText: { ...T.body, color: '#EA4335', fontWeight: '700' as const, textAlign: 'center' as const } as any,
+  inviteBtnMail: {
+    flex: 1, marginTop: 0,
+    backgroundColor: C.teal + '18', borderColor: C.teal + '50',
+  },
+  inviteBtnMailText: { ...T.body, color: C.teal, fontWeight: '700' as const, textAlign: 'center' as const } as any,
   inviteBtnText: { ...T.body, color: C.teal, fontWeight: '700' as const },
 });
