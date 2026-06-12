@@ -302,7 +302,8 @@ export function subscribeToSharedEvents(userId: string, onUpdate: (events: Array
 export function subscribeToSharedEventGifts(
   eventOwnerId: string,
   eventId: string,
-  onUpdate: (gifts: Gift[]) => void
+  onUpdate: (gifts: Gift[]) => void,
+  onError?: (err: Error) => void
 ) {
   const giftsQuery = query(
     collection(db, 'users', eventOwnerId, 'gifts'),
@@ -311,7 +312,7 @@ export function subscribeToSharedEventGifts(
   return onSnapshot(giftsQuery, (snap) => {
     const gifts = snap.docs.map((d) => d.data() as Gift);
     onUpdate(gifts);
-  }, (err) => console.error('[subscribeToSharedEventGifts]', err));
+  }, (err) => { console.error('[subscribeToSharedEventGifts]', err); onError?.(err); });
 }
 
 /**

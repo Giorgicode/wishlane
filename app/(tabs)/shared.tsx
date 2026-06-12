@@ -62,6 +62,7 @@ export default function SharedScreen() {
       event.eventOwnerId,
       event.id,
       (gifts) => { setEventGifts(gifts); setLoadingGifts(false); },
+      () => setLoadingGifts(false),
     );
     if (uid) trackEventView(event.eventOwnerId, event.id, uid).catch(() => {});
   };
