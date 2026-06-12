@@ -263,7 +263,7 @@ export default function ProfileScreen() {
       body += sec('GIFT GUIDE', g);
     }
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${p.displayName || 'Profile'} — Wishlane</title><style>
-*{margin:0;padding:0;box-sizing:border-box}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#07070F;color:#EDEDED;padding:40px 32px;max-width:700px;margin:0 auto}
 .header{display:flex;align-items:center;gap:20px;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid rgba(255,255,255,.08)}
 .avatar{width:80px;height:80px;border-radius:50%;background:rgba(255,107,129,.15);border:2px solid rgba(255,107,129,.5);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#FF6B81;overflow:hidden;flex-shrink:0}
@@ -287,7 +287,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .grow-val.warn{color:#FFAA55}
 .footer{text-align:center;margin-top:32px;padding-top:18px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(255,255,255,.25);letter-spacing:.5px}
 .footer strong{color:#FF6B81;font-weight:600}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body>
 <div class="header"><div class="avatar">${avatarInner}</div><div>
 <div class="name">${p.displayName || ''}</div>
