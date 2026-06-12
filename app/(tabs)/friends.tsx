@@ -1,5 +1,4 @@
 import AmbientBg from '@/components/ambient-bg';
-import SkeletonBlock from '@/components/skeleton-block';
 import { C, glass, glassStrong, R, S, shadow, T, TAB_BAR_HEIGHT } from '@/constants/design';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -18,7 +17,6 @@ import {
   Modal, Platform, Pressable, ScrollView, Share,
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
 
 function Avatar({ name, email, photoURL, size = 44, accent = C.rose }: { name?: string; email?: string; photoURL?: string | null; size?: number; accent?: string }) {
   const initial = (name || email || '?')[0].toUpperCase();
@@ -32,7 +30,6 @@ function Avatar({ name, email, photoURL, size = 44, accent = C.rose }: { name?: 
 
 export default function FriendsScreen() {
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [friendsReady, setFriendsReady] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -65,11 +62,7 @@ export default function FriendsScreen() {
 
   useEffect(() => {
     if (!uid) return;
-    let ready = false;
-    return subscribeToFriends(uid, (f) => {
-      setFriends(f);
-      if (!ready) { ready = true; setFriendsReady(true); }
-    });
+    return subscribeToFriends(uid, setFriends);
   }, [uid]);
   useEffect(() => { if (!uid) return; return subscribeToPendingRequests(uid, setPendingRequests); }, [uid]);
   useEffect(() => { if (!uid) return; return subscribeToOutgoingRequests(uid, setOutgoingRequests); }, [uid]);
@@ -177,7 +170,7 @@ export default function FriendsScreen() {
       <AmbientBg preset="teal" />
 
       {/* Header */}
-      <Animated.View entering={FadeIn.duration(400)} style={styles.header}>
+      <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.eyebrow}>CONNECTIONS</Text>
           <View style={styles.eyebrowRule} />
@@ -186,26 +179,11 @@ export default function FriendsScreen() {
         <Pressable style={styles.addBtn} onPress={() => setAddModalVisible(true)}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </Pressable>
-      </Animated.View>
-
-      {!friendsReady && (
-        <View style={styles.skeletonList}>
-          {[0, 1, 2, 3].map((i) => (
-            <View key={i} style={styles.skeletonCard}>
-              <SkeletonBlock width={44} height={44} radius={22} />
-              <View style={{ flex: 1, gap: 7 }}>
-                <SkeletonBlock width="55%" height={14} />
-                <SkeletonBlock width="70%" height={10} />
-              </View>
-              <SkeletonBlock width={28} height={28} radius={R.full} />
-            </View>
-          ))}
-        </View>
-      )}
+      </View>
 
       {/* Event Connections strip */}
       {eventConnections.length > 0 && (
-        <Animated.View entering={FadeIn.duration(400)} style={styles.connectionsSection}>
+        <View style={styles.connectionsSection}>
           <Text style={styles.connectionsEyebrow}>EVENT CONNECTIONS</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.connectionsRow}>
             {eventConnections.map(conn => {
@@ -223,7 +201,7 @@ export default function FriendsScreen() {
               );
             })}
           </ScrollView>
-        </Animated.View>
+        </View>
       )}
 
       {/* Tabs */}
@@ -408,7 +386,7 @@ export default function FriendsScreen() {
             {showResults ? (
               <>
                 {searchResults.length === 0 ? (
-                  <Animated.View entering={FadeIn.duration(300)} style={styles.notFoundBox}>
+                  <View style={styles.notFoundBox}>
                     <Text style={styles.notFoundTitle}>Not on Wishlane yet</Text>
                     <Text style={styles.notFoundSub}>
                       {friendEmail.includes('@')
@@ -431,7 +409,7 @@ export default function FriendsScreen() {
                         </Pressable>
                       )
                     )}
-                  </Animated.View>
+                  </View>
                 ) : (
                   <>
                     <Text style={styles.resultLabel}>{searchResults.length} user{searchResults.length !== 1 ? 's' : ''} found</Text>
