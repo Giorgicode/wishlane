@@ -264,30 +264,31 @@ export default function ProfileScreen() {
     }
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${p.displayName || 'Profile'} — Wishlane</title><style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#07070F;color:#EDEDED;padding:40px 32px;max-width:700px;margin:0 auto}
-.header{display:flex;align-items:center;gap:20px;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid rgba(255,255,255,.08)}
-.avatar{width:80px;height:80px;border-radius:50%;background:rgba(255,107,129,.15);border:2px solid rgba(255,107,129,.5);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#FF6B81;overflow:hidden;flex-shrink:0}
+html,body{background:#07070F;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#EDEDED}
+.page{background:#07070F;padding:32px;max-width:700px;margin:0 auto;display:inline-block;width:100%}
+.header{display:flex;align-items:center;gap:20px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,.08)}
+.avatar{width:72px;height:72px;border-radius:50%;background:rgba(255,107,129,.15);border:2px solid rgba(255,107,129,.5);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#FF6B81;overflow:hidden;flex-shrink:0}
 .avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-.name{font-size:26px;font-weight:700;color:#F2E8DA;letter-spacing:-.5px}
-.uname{font-size:13px;color:#5AF0D0;margin-top:4px}
-.email{font-size:12px;color:rgba(255,255,255,.45);margin-top:3px}
-.pill{display:inline-block;margin-top:6px;padding:3px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:9999px;font-size:11px;color:rgba(255,255,255,.55)}
-.section{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px;margin-bottom:14px}
-.sec-title{font-size:9px;letter-spacing:1.8px;color:rgba(255,255,255,.28);text-transform:uppercase;margin-bottom:12px;font-weight:600}
-.body-text{font-size:15px;color:rgba(255,255,255,.93);line-height:1.65}
-.tags{display:flex;flex-wrap:wrap;gap:7px}
-.tag{padding:5px 13px;border-radius:9999px;border:1px solid rgba(255,107,129,.45);font-size:12px;color:#FF8F9C}
+.name{font-size:24px;font-weight:700;color:#F2E8DA;letter-spacing:-.5px}
+.uname{font-size:12px;color:#5AF0D0;margin-top:3px}
+.email{font-size:11px;color:rgba(255,255,255,.45);margin-top:2px}
+.pill{display:inline-block;margin-top:5px;padding:2px 9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:9999px;font-size:10px;color:rgba(255,255,255,.55)}
+.section{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:16px;margin-bottom:10px;page-break-inside:avoid}
+.sec-title{font-size:9px;letter-spacing:1.8px;color:rgba(255,255,255,.28);text-transform:uppercase;margin-bottom:10px;font-weight:600}
+.body-text{font-size:14px;color:rgba(255,255,255,.93);line-height:1.6}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{padding:4px 11px;border-radius:9999px;border:1px solid rgba(255,107,129,.45);font-size:11px;color:#FF8F9C}
 .tag.gold{border-color:rgba(200,169,90,.45);color:#C8A95A}
 .tag.teal{border-color:rgba(90,240,208,.4);color:#5AF0D0}
 .tag.red{border-color:rgba(255,95,95,.4);color:#FF7070}
-.grow-row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06);gap:16px}
+.grow-row{display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);gap:16px}
 .grow-row:last-of-type{border-bottom:none}
-.grow-key{font-size:12px;color:rgba(255,255,255,.55);white-space:nowrap}
-.grow-val{font-size:13px;color:rgba(255,255,255,.93);text-align:right}
+.grow-key{font-size:11px;color:rgba(255,255,255,.55);white-space:nowrap}
+.grow-val{font-size:12px;color:rgba(255,255,255,.93);text-align:right}
 .grow-val.warn{color:#FFAA55}
-.footer{text-align:center;margin-top:32px;padding-top:18px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(255,255,255,.25);letter-spacing:.5px}
+.footer{text-align:center;margin-top:24px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:rgba(255,255,255,.25);letter-spacing:.5px}
 .footer strong{color:#FF6B81;font-weight:600}
-</style></head><body>
+</style></head><body><div class="page">
 <div class="header"><div class="avatar">${avatarInner}</div><div>
 <div class="name">${p.displayName || ''}</div>
 ${p.username ? `<div class="uname">@${p.username}</div>` : ''}
@@ -296,7 +297,7 @@ ${p.gender ? `<span class="pill">${p.gender}</span>` : ''}
 </div></div>
 ${body}
 <div class="footer">Shared via <strong>Wishlane</strong> — wish-lane.com</div>
-</body></html>`;
+</div></body></html>`;
   };
 
   const handleSharePDF = async () => {
