@@ -7,7 +7,7 @@ import { Platform } from "react-native";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAQSgGOlkYPPUz8f6_856gnoq93ksb-wRc",
-  authDomain: "wish-lane.com",
+  authDomain: "wishlane-c8b7f.firebaseapp.com",
   projectId: "wishlane-c8b7f",
   storageBucket: "wishlane-c8b7f.firebasestorage.app",
   messagingSenderId: "1045322245921",
