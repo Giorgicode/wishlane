@@ -8,9 +8,10 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   createEvent, deleteEvent, getEventSharedWith,
   shareEventWithUserByEmail, subscribeToEventAnalytics,
-  subscribeToFriends,
+  subscribeToFriends, subscribeToUserProfile,
   unshareEventWithUser, updateEvent,
 } from '@/lib/firestore';
+import { fetchGoogleCalendarEvents, gCalEventDate, pushToGoogleCalendar, requestCalendarToken, type GCalEvent } from '@/lib/googleCalendar';
 import { useAppData } from '@/contexts/AppDataContext';
 import { toast } from '@/lib/toast';
 import type { EventAnalytic, EventItem, EventShare, Friend, Gift } from '@/types/firebase';
@@ -264,6 +265,15 @@ export default function EventsScreen() {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [selectedEventForDetails, setSelectedEventForDetails] = useState<EventItem | null>(null);
 
+  // Google Calendar
+  const [gcalSyncMode, setGcalSyncMode] = useState<string>('off');
+  const [gcalToken, setGcalToken] = useState<string | null>(null);
+  const [syncingEventId, setSyncingEventId] = useState<string | null>(null);
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [gcalEvents, setGcalEvents] = useState<GCalEvent[]>([]);
+  const [loadingGcal, setLoadingGcal] = useState(false);
+  const [selectedGcalIds, setSelectedGcalIds] = useState<Set<string>>(new Set());
+  const [importingSaving, setImportingSaving] = useState(false);
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -290,6 +300,20 @@ export default function EventsScreen() {
     return subscribeToEventAnalytics(uid, selectedEventForAnalytics.id, setCurrentAnalytics);
   }, [uid, selectedEventForAnalytics?.id]);
 
+  // Subscribe to user profile to read gcalSyncMode
+  useEffect(() => {
+    if (!uid) return;
+    return subscribeToUserProfile(uid, (p: any) => setGcalSyncMode(p?.gcalSyncMode ?? 'off'));
+  }, [uid]);
+
+  // Auto-pull: when token is acquired and mode is pull/both, fetch GCal events
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (!gcalToken) return;
+    if (gcalSyncMode !== 'pull' && gcalSyncMode !== 'both') return;
+    fetchGoogleCalendarEvents(gcalToken).then(setGcalEvents).catch(() => {});
+  }, [gcalToken, gcalSyncMode]);
+
   const openFAB = () => { setFormVisible(true); isOpen.value = withSpring(1, spring.snappy); };
   const closeFAB = () => { isOpen.value = withSpring(0, spring.fast); setTimeout(() => setFormVisible(false), 320); };
 
@@ -298,6 +322,16 @@ export default function EventsScreen() {
     if (!form.name.trim()) { toast.error('Event name is required'); return; }
     try {
       await createEvent(uid, { name: form.name, description: form.description, expirationDate: form.date });
+      // Auto-push to Google Calendar if mode allows
+      if (Platform.OS === 'web' && (gcalSyncMode === 'push' || gcalSyncMode === 'both')) {
+        try {
+          const token = gcalToken ?? await getOrRequestToken();
+          if (token) {
+            await pushToGoogleCalendar(token, { name: form.name, description: form.description, expirationDate: form.date });
+            toast.success('Added to Google Calendar');
+          }
+        } catch { /* event created — GCal push failed silently */ }
+      }
       setForm({ name: '', description: '', date: null });
       closeFAB();
     } catch { toast.error('Failed to create event'); }
@@ -387,6 +421,89 @@ export default function EventsScreen() {
     return d < new Date();
   };
 
+  const getOrRequestToken = async (): Promise<string | null> => {
+    if (Platform.OS !== 'web') {
+      toast.info('Google Calendar sync is available on web only');
+      return null;
+    }
+    try {
+      const token = await requestCalendarToken();
+      setGcalToken(token);
+      return token;
+    } catch (err: any) {
+      if (err?.code !== 'auth/popup-closed-by-user') {
+        toast.error('Could not connect to Google Calendar');
+      }
+      return null;
+    }
+  };
+
+  const handleSyncToGoogleCalendar = async (event: EventItem) => {
+    setSyncingEventId(event.id);
+    try {
+      const token = gcalToken ?? await getOrRequestToken();
+      if (!token) return;
+      const date = event.expirationDate
+        ? ((event.expirationDate as any).toDate ? (event.expirationDate as any).toDate() : new Date(event.expirationDate as any))
+        : null;
+      await pushToGoogleCalendar(token, { name: event.name, description: event.description, expirationDate: date });
+      toast.success(`"${event.name}" added to Google Calendar`, 'Synced');
+    } catch (err: any) {
+      if (err?.message?.includes('invalid_grant') || err?.message?.includes('401')) {
+        setGcalToken(null);
+        toast.error('Session expired — please try again');
+      } else {
+        toast.error(err?.message ?? 'Sync failed');
+      }
+    } finally {
+      setSyncingEventId(null); }
+  };
+
+  const handleOpenImport = async () => {
+    setImportModalVisible(true);
+    setLoadingGcal(true);
+    setGcalEvents([]);
+    setSelectedGcalIds(new Set());
+    try {
+      const token = gcalToken ?? await getOrRequestToken();
+      if (!token) { setImportModalVisible(false); return; }
+      const items = await fetchGoogleCalendarEvents(token);
+      setGcalEvents(items);
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Could not load Google Calendar');
+      setImportModalVisible(false);
+    } finally {
+      setLoadingGcal(false);
+    }
+  };
+
+  const toggleGcalSelect = (id: string) => {
+    setSelectedGcalIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleImportSelected = async () => {
+    if (!uid || selectedGcalIds.size === 0) return;
+    setImportingSaving(true);
+    try {
+      const toImport = gcalEvents.filter((e) => selectedGcalIds.has(e.id));
+      for (const ev of toImport) {
+        const date = gCalEventDate(ev);
+        await createEvent(uid, {
+          name: ev.summary ?? 'Untitled',
+          description: ev.description ?? '',
+          expirationDate: date,
+        });
+      }
+      toast.success(`Imported ${toImport.length} event${toImport.length > 1 ? 's' : ''}`, 'Done');
+      setImportModalVisible(false);
+    } catch { toast.error('Import failed'); }
+    finally { setImportingSaving(false); }
+  };
+
   // Morph styles
   const morphStyle = useAnimatedStyle(() => ({
     width: interpolate(isOpen.value, [0, 1], [FAB_SIZE, FAB_EXPANDED_W]),
@@ -443,6 +560,11 @@ export default function EventsScreen() {
                 <View style={styles.eyebrowRule} />
                 <Text style={styles.screenTitle}>{events.length} {events.length === 1 ? 'Event' : 'Events'}</Text>
               </View>
+              {Platform.OS === 'web' && (
+                <Pressable onPress={handleOpenImport} style={[styles.calendarToggle, { marginRight: S.xs }]}>
+                  <Text style={styles.calendarToggleText}>⬇ Import</Text>
+                </Pressable>
+              )}
               <Pressable onPress={() => setShowCalendar(!showCalendar)} style={styles.calendarToggle}>
                 <Text style={styles.calendarToggleText}>{showCalendar ? 'List' : 'Cal'}</Text>
               </Pressable>
@@ -513,6 +635,11 @@ export default function EventsScreen() {
               <Pressable onPress={() => openShareModal(item)} hitSlop={6}>
                 <Text style={styles.actionIcon}>Share</Text>
               </Pressable>
+              {Platform.OS === 'web' && (
+                <Pressable onPress={() => handleSyncToGoogleCalendar(item)} hitSlop={6} disabled={syncingEventId === item.id}>
+                  <Text style={[styles.actionIcon, styles.gcalIcon]}>{syncingEventId === item.id ? '…' : '📅'}</Text>
+                </Pressable>
+              )}
               <Pressable onPress={() => handleDeleteEvent(item.id)} hitSlop={6}>
                 <Text style={styles.actionIcon}>Del</Text>
               </Pressable>
@@ -521,6 +648,36 @@ export default function EventsScreen() {
           );
         }}
       />
+
+      {/* ── Auto-pulled Google Calendar events ── */}
+      {Platform.OS === 'web' && (gcalSyncMode === 'pull' || gcalSyncMode === 'both') && (
+        <Animated.View entering={FadeIn.duration(400)} style={{ paddingHorizontal: S.md, paddingBottom: S.md }}>
+          {gcalEvents.length > 0 ? (
+            <>
+              <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 2, color: C.teal, marginBottom: S.sm, marginTop: S.sm }}>
+                FROM GOOGLE CALENDAR
+              </Text>
+              {gcalEvents.map((ev) => {
+                const date = gCalEventDate(ev);
+                return (
+                  <View key={ev.id} style={[styles.gcalRow, { marginBottom: S.xs }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.gcalEventName}>{ev.summary}</Text>
+                      {date && <Text style={styles.gcalEventDate}>{date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</Text>}
+                      {!!ev.description && <Text style={styles.gcalEventDesc} numberOfLines={1}>{ev.description}</Text>}
+                    </View>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.teal, marginTop: 4 }} />
+                  </View>
+                );
+              })}
+            </>
+          ) : !gcalToken ? (
+            <Pressable onPress={handleOpenImport} style={styles.gcalSyncPrompt}>
+              <Text style={styles.gcalSyncPromptText}>📅 Tap to sync Google Calendar events</Text>
+            </Pressable>
+          ) : null}
+        </Animated.View>
+      )}
 
       {/* Backdrop */}
       {formVisible && (
@@ -712,6 +869,76 @@ export default function EventsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Google Calendar Import Modal ── */}
+      <Modal visible={importModalVisible} transparent animationType="slide" onRequestClose={() => setImportModalVisible(false)}>
+        <View style={styles.modalBg}>
+          <View style={[styles.modalSheet, { maxHeight: '85%' }]}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetTitle}>Import from Google Calendar</Text>
+                <Text style={styles.sheetSub}>Select events to add to Wishlane</Text>
+              </View>
+              <Pressable onPress={() => setImportModalVisible(false)} style={styles.closeBtn}>
+                <Text style={styles.closeBtnText}>✕</Text>
+              </Pressable>
+            </View>
+
+            {loadingGcal ? (
+              <View style={{ alignItems: 'center', paddingVertical: S.xxl }}>
+                <Text style={styles.sheetSub}>Loading your Google Calendar…</Text>
+              </View>
+            ) : gcalEvents.length === 0 ? (
+              <Text style={[styles.sheetSub, { textAlign: 'center', marginVertical: S.xl }]}>No upcoming events found</Text>
+            ) : (
+              <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+                {gcalEvents.map((ev) => {
+                  const date = gCalEventDate(ev);
+                  const selected = selectedGcalIds.has(ev.id);
+                  return (
+                    <Pressable
+                      key={ev.id}
+                      style={[styles.gcalRow, selected && styles.gcalRowSelected]}
+                      onPress={() => toggleGcalSelect(ev.id)}
+                    >
+                      <View style={[styles.gcalCheck, selected && styles.gcalCheckSelected]}>
+                        {selected && <Text style={styles.gcalCheckMark}>✓</Text>}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.gcalEventName} numberOfLines={1}>{ev.summary ?? 'Untitled'}</Text>
+                        {date && (
+                          <Text style={styles.gcalEventDate}>
+                            {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                          </Text>
+                        )}
+                        {!!ev.description && (
+                          <Text style={styles.gcalEventDesc} numberOfLines={1}>{ev.description}</Text>
+                        )}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {selectedGcalIds.size > 0 && (
+              <Pressable
+                style={[styles.primaryBtn, importingSaving && { opacity: 0.6 }]}
+                onPress={handleImportSelected}
+                disabled={importingSaving}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {importingSaving ? 'Importing…' : `Import ${selectedGcalIds.size} Event${selectedGcalIds.size > 1 ? 's' : ''}`}
+                </Text>
+              </Pressable>
+            )}
+            <Pressable style={styles.ghostBtn} onPress={() => setImportModalVisible(false)}>
+              <Text style={styles.ghostBtnText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -771,6 +998,33 @@ const styles = StyleSheet.create({
   sharedPillText: { ...T.micro, color: C.teal },
   cardActions: { flexDirection: 'column', justifyContent: 'space-around', paddingLeft: S.sm, gap: 4 },
   actionIcon: { fontSize: 10, color: C.t3, fontWeight: '600' as const, letterSpacing: 0.3, textAlign: 'center' },
+  gcalIcon: { fontSize: 14 },
+
+  gcalRow: {
+    flexDirection: 'row', alignItems: 'center', gap: S.sm,
+    padding: S.sm, borderRadius: R.md, marginBottom: S.xs,
+    borderWidth: 1, borderColor: C.border,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  gcalRowSelected: {
+    borderColor: C.rose + '60', backgroundColor: 'rgba(255,107,129,0.08)',
+  },
+  gcalCheck: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 1.5, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  gcalCheckSelected: { backgroundColor: C.rose, borderColor: C.rose },
+  gcalCheckMark: { fontSize: 12, color: C.white, fontWeight: '700' as const },
+  gcalEventName: { ...T.body, color: C.cream, fontWeight: '600' as const } as any,
+  gcalEventDate: { fontSize: 11, color: C.teal, marginTop: 2 },
+  gcalEventDesc: { fontSize: 11, color: C.t3, marginTop: 1 },
+  gcalSyncPrompt: {
+    marginTop: S.sm, padding: S.md, borderRadius: R.lg,
+    borderWidth: 1, borderColor: C.teal + '40', backgroundColor: C.teal + '0A',
+    alignItems: 'center',
+  },
+  gcalSyncPromptText: { ...T.small, color: C.teal },
 
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 10 },
 

@@ -5,6 +5,7 @@ import { auth } from '@/config/firebaseConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { setUserProfile, subscribeToUserProfile, UserProfile } from '@/lib/firestore';
 import { AVATAR_PRESETS, isPreset, presetColor } from '@/lib/avatarPresets';
+import { requestCalendarToken } from '@/lib/googleCalendar';
 import { uploadImageAsync } from '@/lib/storage';
 import { toast } from '@/lib/toast';
 import { useRouter } from 'expo-router';
@@ -195,6 +196,7 @@ export default function ProfileScreen() {
     setGiftTypes(p.preferredGiftTypes ?? []);
     setClothing(p.clothingSize ?? '');
     setShoe(p.shoeSize ?? '');
+    setGcalSyncModeState(p.gcalSyncMode ?? 'off');
   }
 
   const toggle = (arr: string[], set: (v: string[]) => void, item: string) =>
@@ -204,7 +206,36 @@ export default function ProfileScreen() {
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+
+  // Google Calendar settings
+  const [gcalSyncMode, setGcalSyncModeState] = useState<UserProfile['gcalSyncMode']>('off');
+  const [gcalConnected, setGcalConnected] = useState(false);
+  const [gcalConnecting, setGcalConnecting] = useState(false);
   const openEdit = () => { if (profile) populateForm(profile); setShowEdit(true); };
+
+  const handleGcalConnect = async () => {
+    if (Platform.OS !== 'web') return;
+    setGcalConnecting(true);
+    try {
+      await requestCalendarToken();
+      setGcalConnected(true);
+      toast.success('Google Calendar connected');
+    } catch {
+      toast.error('Could not connect Google Calendar');
+    } finally {
+      setGcalConnecting(false);
+    }
+  };
+
+  const handleGcalSyncModeChange = async (mode: UserProfile['gcalSyncMode']) => {
+    if (!uid) return;
+    setGcalSyncModeState(mode);
+    try {
+      await setUserProfile(uid, { gcalSyncMode: mode });
+    } catch {
+      toast.error('Failed to save sync preference');
+    }
+  };
 
   const handleSignOut = () => {
     if (Platform.OS === 'web') { setConfirmingSignOut(true); return; }
@@ -654,6 +685,54 @@ ${body}
             </Pressable>
           </Animated.View>
         )}
+
+        {/* ── Google Calendar Settings ── */}
+        {Platform.OS === 'web' && (
+          <Animated.View entering={FadeInUp.duration(400)} style={styles.sectionCard}>
+            <Text style={styles.sectionEyebrow}>GOOGLE CALENDAR</Text>
+
+            {/* Connect button */}
+            <Pressable
+              style={[styles.gcalConnectBtn, gcalConnected && styles.gcalConnectBtnActive]}
+              onPress={handleGcalConnect}
+              disabled={gcalConnecting || gcalConnected}
+            >
+              {gcalConnecting
+                ? <ActivityIndicator size="small" color={C.teal} />
+                : <Text style={[styles.gcalConnectText, gcalConnected && { color: C.teal }]}>
+                    {gcalConnected ? '✓ Google Calendar connected' : 'Connect Google Calendar'}
+                  </Text>
+              }
+            </Pressable>
+
+            <Text style={[styles.fieldLabel, { marginTop: S.md, marginBottom: S.sm }]}>Sync mode</Text>
+
+            {([
+              { key: 'off',    label: 'Off',               sub: 'No automatic sync' },
+              { key: 'push',   label: 'Auto push',          sub: 'New events → Google Calendar automatically' },
+              { key: 'pull',   label: 'Auto pull',          sub: 'Google Calendar events shown in Events tab' },
+              { key: 'both',   label: 'Both directions',    sub: 'Push new events + pull from Google Calendar' },
+              { key: 'manual', label: 'Manual per event',   sub: 'Use the 📅 button on each event card' },
+            ] as Array<{ key: UserProfile['gcalSyncMode']; label: string; sub: string }>).map(({ key, label, sub }) => {
+              const active = gcalSyncMode === key;
+              return (
+                <Pressable
+                  key={key}
+                  style={[styles.gcalModeRow, active && styles.gcalModeRowActive]}
+                  onPress={() => handleGcalSyncModeChange(key)}
+                >
+                  <View style={[styles.gcalRadio, active && styles.gcalRadioActive]}>
+                    {active && <View style={styles.gcalRadioDot} />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.gcalModeLabel, active && { color: C.teal }]}>{label}</Text>
+                    <Text style={styles.gcalModeSub}>{sub}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </Animated.View>
+        )}
       </ScrollView>
 
       {/* ═══════════════════════════════════════════════════════
@@ -1036,4 +1115,27 @@ const styles = StyleSheet.create({
   presetCircle: {
     width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
   },
+
+  gcalConnectBtn: {
+    paddingHorizontal: S.md, paddingVertical: 10, borderRadius: R.lg,
+    borderWidth: 1, borderColor: C.teal + '50', backgroundColor: C.teal + '10',
+    alignItems: 'center',
+  },
+  gcalConnectBtnActive: { borderColor: C.teal, backgroundColor: C.teal + '20' },
+  gcalConnectText: { ...T.body, color: C.t2, fontWeight: '600' as const },
+
+  gcalModeRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: S.sm,
+    paddingVertical: S.sm, paddingHorizontal: S.xs,
+    borderRadius: R.md, marginBottom: 4,
+  },
+  gcalModeRowActive: { backgroundColor: C.teal + '0D' },
+  gcalRadio: {
+    width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: C.borderMed,
+    alignItems: 'center', justifyContent: 'center', marginTop: 2,
+  },
+  gcalRadioActive: { borderColor: C.teal },
+  gcalRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.teal },
+  gcalModeLabel: { ...T.body, color: C.t1, fontWeight: '600' as const },
+  gcalModeSub: { ...T.micro, color: C.t3, marginTop: 2 },
 });

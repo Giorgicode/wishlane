@@ -98,6 +98,7 @@ export interface UserProfile {
   shoeSize?: string;
   preferredStores?: string[];
   onboardingComplete?: boolean;
+  gcalSyncMode?: 'off' | 'push' | 'pull' | 'both' | 'manual';
   createdAt?: Timestamp | Date | null;
   updatedAt?: Timestamp | Date | null;
 }
